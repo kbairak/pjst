@@ -7,7 +7,7 @@ class ResourceHandler:
     TYPE: str
 
     @classmethod
-    def get_one(cls, article_id: str) -> Response:
+    def get_one(cls, obj_id: str) -> Response:
         raise NotImplementedError()
 
     @classmethod

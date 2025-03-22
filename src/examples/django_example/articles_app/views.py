@@ -9,9 +9,9 @@ class ArticleResource(ResourceHandler):
     TYPE = "articles"
 
     @classmethod
-    def get_one(cls, article_id: str) -> Response:
+    def get_one(cls, obj_id: str) -> Response:
         try:
-            return Response(data=ArticleModel.objects.get(id=article_id))
+            return Response(data=ArticleModel.objects.get(id=obj_id))
         except ArticleModel.DoesNotExist:
             raise pjst_exceptions.NotFound("Article not found")
 
