@@ -1,8 +1,9 @@
 # Todos
 
 - [ ] Request object with data injection
-- [ ] Sample flask app
-- [ ] Sample fastapi app
+- [✅] Sample flask app
+- [✅] Sample fastapi app
+- [ ] Exception handling
 
 # Usage
 

@@ -1,13 +1,14 @@
 import datetime
 
-from flask import Flask
+from fastapi import FastAPI
 from pydantic import BaseModel
 from pydantic import Field as PydanticField
 from sqlalchemy.exc import NoResultFound
-from sqlmodel import Field, Session, SQLModel, create_engine, select
+from sqlmodel import Field as SQLModelField
+from sqlmodel import Session, SQLModel, create_engine, select
 
 from pjst import exceptions as pjst_exceptions
-from pjst.flask import register
+from pjst.fastapi import register
 from pjst.resource import ResourceHandler
 from pjst.types import Resource, Response
 
@@ -15,7 +16,7 @@ from pjst.types import Resource, Response
 class ArticleModel(SQLModel, table=True):
     __tablename__ = "articles_app_article"
 
-    id: int = Field(primary_key=True)
+    id: int = SQLModelField(primary_key=True)
     title: str
     content: str
     created_at: datetime.datetime
@@ -24,8 +25,7 @@ class ArticleModel(SQLModel, table=True):
 
 engine = create_engine("sqlite:///src/examples/db.sqlite3")
 
-
-app = Flask(__name__)
+app = FastAPI()
 
 
 class Article(Resource):

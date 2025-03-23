@@ -1,14 +1,13 @@
 from flask import Flask, request
 
 from pjst.resource import ResourceHandler
-from pjst.types import Resource
-from pjst.types import Response as PjstResponse
+from pjst.types import Resource, Response
 
 
 def register(app: Flask, resource_cls: type[ResourceHandler]) -> None:
     def _get_one(obj_id: str) -> tuple[dict, dict[str, str]]:
         simple_response = resource_cls.get_one(obj_id)
-        if not isinstance(simple_response, PjstResponse):
+        if not isinstance(simple_response, Response):
             return simple_response
         processed_response = resource_cls._process_one(simple_response)
         if "links" not in processed_response.links:

@@ -3,7 +3,7 @@ from typing import Callable
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.urls import URLPattern, path, reverse
 
-from pjst.types import Resource
+from pjst.types import Resource, Response
 
 from .resource import ResourceHandler
 
@@ -22,18 +22,15 @@ def _get_one(
 ) -> Callable[[HttpRequest, str], HttpResponse]:
     def view(request: HttpRequest, obj_id: str) -> HttpResponse:
         simple_response = resource_cls.get_one(obj_id)
-        if isinstance(simple_response, HttpResponse):
+        if not isinstance(simple_response, Response):
             return simple_response
         processed_response = resource_cls._process_one(simple_response)
+        self_link = reverse(f"{resource_cls.TYPE}_object", kwargs={"obj_id": obj_id})
         if "links" not in processed_response.links:
-            processed_response.links["self"] = reverse(
-                f"{resource_cls.TYPE}_object", kwargs={"obj_id": obj_id}
-            )
+            processed_response.links["self"] = self_link
         assert isinstance(processed_response.data, Resource)
         if "links" not in processed_response.data.links:
-            processed_response.data.links["self"] = reverse(
-                f"{resource_cls.TYPE}_object", kwargs={"obj_id": obj_id}
-            )
+            processed_response.data.links["self"] = self_link
         result = JsonResponse(processed_response.model_dump())
         result["Content-Type"] = "application/vnd.api+json"
         return result
