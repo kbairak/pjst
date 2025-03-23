@@ -3,12 +3,13 @@ from typing import Callable
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.urls import URLPattern, path, reverse
 
-from pjst.types import Resource, Response
+from pjst.exceptions import PjstException
+from pjst.types import Document, Resource, Response
 
 from .resource import ResourceHandler
 
 
-def hasdirectattr(cls: type[ResourceHandler], method: str) -> bool:
+def _hasdirectattr(cls: type[ResourceHandler], method: str) -> bool:
     try:
         attr = getattr(cls, method)
         name = attr.__qualname__
@@ -21,7 +22,14 @@ def _get_one(
     resource_cls: type[ResourceHandler],
 ) -> Callable[[HttpRequest, str], HttpResponse]:
     def view(request: HttpRequest, obj_id: str) -> HttpResponse:
-        simple_response = resource_cls.get_one(obj_id)
+        try:
+            simple_response = resource_cls.get_one(obj_id)
+        except PjstException as exc:
+            result = JsonResponse(
+                Document(errors=exc.render()).model_dump(), status=exc.status
+            )
+            result["Content-Type"] = "application/vnd.api+json"
+            return result
         if not isinstance(simple_response, Response):
             return simple_response
         processed_response = resource_cls._process_one(simple_response)
@@ -40,10 +48,10 @@ def _get_one(
 
 def register(resource_cls: type[ResourceHandler]) -> list[URLPattern]:
     result = []
-    if hasdirectattr(resource_cls, "get_one"):
+    if _hasdirectattr(resource_cls, "get_one"):
         result.append(
             path(
-                f"{resource_cls.TYPE}/<str:obj_id>/",
+                f"{resource_cls.TYPE}/<str:obj_id>",
                 _get_one(resource_cls),
                 name=f"{resource_cls.TYPE}_object",
             )

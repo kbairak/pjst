@@ -5,9 +5,7 @@ description = "Python {json:api} server toolkit"
 readme = "README.md"
 authors = [{ name = "Konstantinos Bairaktaris", email = "ikijob@gmail.com" }]
 requires-python = ">=3.13"
-dependencies = [
-    "pydantic>=2.10.6",
-]
+dependencies = ["pydantic>=2.10.6"]
 
 [build-system]
 requires = ["hatchling"]
@@ -15,13 +13,20 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
-    "django>=5.1.7",
-    "django-stubs>=5.1.3",
-    "fastapi[standard]>=0.115.11",
-    "flask>=3.1.0",
-    "pudb>=2024.1.3",
-    "sqlmodel>=0.0.24",
+  "django>=5.1.7",
+  "django-stubs>=5.1.3",
+  "fastapi[standard]>=0.115.11",
+  "flask>=3.1.0",
+  "pudb>=2024.1.3",
+  "pytest>=8.3.5",
+  "pytest-django>=4.10.0",
+  "ruff>=0.11.2",
+  "sqlmodel>=0.0.24",
 ]
 
 [tool.hatch.build.targets.sdist]
 include = ["/src/pjst"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "examples.django_example.articles_project.settings"
+pythonpath = '. src/examples/django_example'

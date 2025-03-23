@@ -35,6 +35,7 @@ class Error(BaseModel):
     code: str
     title: str
     detail: str
+    source: dict | None = None
 
 
 class Document(BaseModel):

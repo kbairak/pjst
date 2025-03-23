@@ -3,8 +3,9 @@ import inspect
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from pjst.exceptions import PjstException
 from pjst.resource import ResourceHandler
-from pjst.types import Resource, Response
+from pjst.types import Document, Resource, Response
 
 
 class JsonApiResponse(JSONResponse):
@@ -13,7 +14,12 @@ class JsonApiResponse(JSONResponse):
 
 def register(app: FastAPI, resource_cls: type[ResourceHandler]) -> None:
     def _get_one(obj_id: str, request: Request) -> JsonApiResponse:
-        simple_response = resource_cls.get_one(obj_id)
+        try:
+            simple_response = resource_cls.get_one(obj_id)
+        except PjstException as exc:
+            return JsonApiResponse(
+                Document(errors=exc.render()).model_dump(), status_code=exc.status
+            )
         if not isinstance(simple_response, Response):
             return simple_response
         processed_response = resource_cls._process_one(simple_response)
