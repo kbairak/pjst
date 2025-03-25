@@ -15,4 +15,4 @@ ruff:
 	uv run ruff format
 
 test:
-	TESTING=1 uv run pytest
+	env TESTING=1 uv run pytest

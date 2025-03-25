@@ -11,3 +11,4 @@ wheels/
 
 # temp data
 src/examples/django_example/db.sqlite3
+.coverage
