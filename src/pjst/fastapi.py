@@ -3,9 +3,9 @@ import inspect
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from pjst.exceptions import BadRequest, MethodNotAllowed, PjstException
+from pjst import exceptions as pjst_exceptions
+from pjst import types as pjst_types
 from pjst.resource import ResourceHandler
-from pjst.types import Document, Resource, Response
 from pjst.utils import hasdirectattr
 
 
@@ -25,23 +25,26 @@ def register(app: FastAPI, resource_cls: type[ResourceHandler]) -> None:
                     .parameters["obj"]
                     .annotation,
                 )
-                if isinstance(obj, Resource) and obj.id != obj_id:
-                    raise BadRequest(
+                if isinstance(obj, pjst_types.Resource) and obj.id != obj_id:
+                    raise pjst_exceptions.BadRequest(
                         f"ID in URL ({obj_id}) does not match ID in body ({obj.id})"
                     )
                 simple_response = resource_cls.edit_one(obj)
             else:
-                raise MethodNotAllowed(f"Method {request.method} not allowed")
-        except PjstException as exc:
+                raise pjst_exceptions.MethodNotAllowed(
+                    f"Method {request.method} not allowed"
+                )
+        except pjst_exceptions.PjstException as exc:
             return JsonApiResponse(
-                Document(errors=exc.render()).model_dump(), status_code=exc.status
+                pjst_types.Document(errors=exc.render()).model_dump(),
+                status_code=exc.status,
             )
-        if not isinstance(simple_response, Response):
+        if not isinstance(simple_response, pjst_types.Response):
             return simple_response
         processed_response = resource_cls._postprocess_one(simple_response)
         if "self" not in processed_response.links:
             processed_response.links["self"] = request.url.path
-        assert isinstance(processed_response.data, Resource)
+        assert isinstance(processed_response.data, pjst_types.Resource)
         if "self" not in processed_response.data.links:
             processed_response.data.links["self"] = request.url.path
         return JsonApiResponse(processed_response.model_dump())

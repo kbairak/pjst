@@ -1,21 +1,21 @@
-from pydantic import BaseModel, Field
+import pydantic
 
 from pjst import ResourceHandler
 from pjst import exceptions as pjst_exceptions
-from pjst.types import Resource, Response
+from pjst import types as pjst_types
 
 from .models import ArticleModel
 
 
-class ArticleSchema(Resource):
-    class Attributes(BaseModel):
-        title: str = Field(default="", examples=["Title"])
-        content: str = Field(default="", examples=["Content"])
+class ArticleSchema(pjst_types.Resource):
+    class Attributes(pydantic.BaseModel):
+        title: str = pydantic.Field(default="", examples=["Title"])
+        content: str = pydantic.Field(default="", examples=["Content"])
 
-    type: str = Field(default="articles")
-    id: str = Field(default="1", examples=["1"])
-    attributes: Attributes = Field(default_factory=Attributes)
-    links: dict[str, str] = Field(
+    type: str = pydantic.Field(default="articles")
+    id: str = pydantic.Field(default="1", examples=["1"])
+    attributes: Attributes = pydantic.Field(default_factory=Attributes)
+    links: dict[str, str] = pydantic.Field(
         default_factory=dict, examples=[{"self": "/articles/1"}]
     )
 
@@ -24,14 +24,14 @@ class ArticleResourceHandler(ResourceHandler):
     TYPE = "articles"
 
     @classmethod
-    def get_one(cls, obj_id: str) -> Response:
+    def get_one(cls, obj_id: str) -> pjst_types.Response:
         try:
-            return Response(data=ArticleModel.objects.get(id=obj_id))
+            return pjst_types.Response(data=ArticleModel.objects.get(id=obj_id))
         except ArticleModel.DoesNotExist:
             raise pjst_exceptions.NotFound("Article not found")
 
     @classmethod
-    def edit_one(cls, obj: ArticleSchema) -> Response:
+    def edit_one(cls, obj: ArticleSchema) -> pjst_types.Response:
         if not obj.attributes.model_fields_set:
             raise pjst_exceptions.BadRequest("At least one attribute must be set")
         try:
@@ -43,7 +43,7 @@ class ArticleResourceHandler(ResourceHandler):
         if "content" in obj.attributes.model_fields_set:
             article.content = obj.attributes.content
         article.save()
-        return Response(data=article)
+        return pjst_types.Response(data=article)
 
     @classmethod
     def serialize(cls, obj: ArticleModel) -> ArticleSchema:

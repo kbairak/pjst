@@ -2,9 +2,9 @@ import inspect
 
 from flask import Flask, request
 
-from .exceptions import BadRequest, MethodNotAllowed, PjstException
+from . import exceptions as pjst_exceptions
+from . import types as pjst_types
 from .resource import ResourceHandler
-from .types import Document, Resource, Response
 from .utils import hasdirectattr
 
 
@@ -22,27 +22,29 @@ def register(app: Flask, resource_cls: type[ResourceHandler]) -> None:
                     .parameters["obj"]
                     .annotation,
                 )
-                if isinstance(obj, Resource) and obj.id != obj_id:
-                    raise BadRequest(
+                if isinstance(obj, pjst_types.Resource) and obj.id != obj_id:
+                    raise pjst_exceptions.BadRequest(
                         f"ID in URL ({obj_id}) does not match ID in body ({obj.id})"
                     )
                 simple_response = resource_cls.edit_one(obj)
             else:
-                raise MethodNotAllowed(f"Method {request.method} not allowed")
-        except PjstException as exc:
+                raise pjst_exceptions.MethodNotAllowed(
+                    f"Method {request.method} not allowed"
+                )
+        except pjst_exceptions.PjstException as exc:
             return (
-                Document(errors=exc.render()).model_dump(),
+                pjst_types.Document(errors=exc.render()).model_dump(),
                 exc.status,
                 {
                     "Content-Type": "application/vnd.api+json",
                 },
             )
-        if not isinstance(simple_response, Response):
+        if not isinstance(simple_response, pjst_types.Response):
             return simple_response
         processed_response = resource_cls._postprocess_one(simple_response)
         if "self" not in processed_response.links:
             processed_response.links["self"] = request.path
-        assert isinstance(processed_response.data, Resource)
+        assert isinstance(processed_response.data, pjst_types.Resource)
         if "self" not in processed_response.data.links:
             processed_response.data.links["self"] = request.path
         return processed_response.model_dump(), {

@@ -2,30 +2,30 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from . import models
 from .app import app
-from .models import ArticleModel, Base, engine
 
 client = TestClient(app)
 
 
 @pytest.fixture()
 def db():
-    Base.metadata.create_all(engine)
+    models.Base.metadata.create_all(models.engine)
     yield
-    Base.metadata.drop_all(engine)
+    models.Base.metadata.drop_all(models.engine)
 
 
 @pytest.fixture()
-def article(db) -> ArticleModel:
-    with Session(engine) as session:
-        article = ArticleModel(title="Test title", content="Test content")
+def article(db) -> models.ArticleModel:
+    with Session(models.engine) as session:
+        article = models.ArticleModel(title="Test title", content="Test content")
         session.add(article)
         session.commit()
         session.refresh(article)
     return article
 
 
-def test_article_found(article: ArticleModel):
+def test_article_found(article: models.ArticleModel):
     response = client.get("/articles/1")
     assert response.status_code == 200
     assert response.json() == {
@@ -46,7 +46,7 @@ def test_article_not_found(db):
     assert response.status_code == 404
 
 
-def test_edit(article: ArticleModel):
+def test_edit(article: models.ArticleModel):
     response = client.patch(
         f"/articles/{article.id}",
         json={
@@ -71,7 +71,7 @@ def test_edit(article: ArticleModel):
     }
 
 
-def test_edit_one_field(article: ArticleModel):
+def test_edit_one_field(article: models.ArticleModel):
     response = client.patch(
         f"/articles/{article.id}",
         json={
@@ -96,7 +96,7 @@ def test_edit_one_field(article: ArticleModel):
     }
 
 
-def test_edit_no_fields(article: ArticleModel):
+def test_edit_no_fields(article: models.ArticleModel):
     response = client.patch(
         f"/articles/{article.id}",
         json={"data": {"type": "articles", "id": str(article.id), "attributes": {}}},
@@ -117,7 +117,7 @@ def test_edit_no_fields(article: ArticleModel):
     }
 
 
-def test_edit_validation_error(article: ArticleModel):
+def test_edit_validation_error(article: models.ArticleModel):
     response = client.patch(
         f"/articles/{article.id}",
         json={

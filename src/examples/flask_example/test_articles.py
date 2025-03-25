@@ -3,16 +3,16 @@ from flask import Flask
 from flask.testing import FlaskClient
 from sqlalchemy.orm import Session
 
+from . import models
 from .app import create_app
-from .models import ArticleModel, Base, engine
 
 
 @pytest.fixture()
 def app():
     app = create_app()
-    Base.metadata.create_all(engine)
+    models.Base.metadata.create_all(models.engine)
     yield app
-    Base.metadata.drop_all(engine)
+    models.Base.metadata.drop_all(models.engine)
 
 
 @pytest.fixture()
@@ -21,16 +21,16 @@ def client(app: Flask):
 
 
 @pytest.fixture()
-def article(app) -> ArticleModel:
-    with Session(engine) as session:
-        article = ArticleModel(title="Test title", content="Test content")
+def article(app) -> models.ArticleModel:
+    with Session(models.engine) as session:
+        article = models.ArticleModel(title="Test title", content="Test content")
         session.add(article)
         session.commit()
         session.refresh(article)
     return article
 
 
-def test_get_success(article: ArticleModel, client: FlaskClient):
+def test_get_success(article: models.ArticleModel, client: FlaskClient):
     response = client.get(f"/articles/{article.id}")
     assert response.status_code == 200
     assert response.json == {
@@ -64,7 +64,7 @@ def test_get_not_found(client: FlaskClient):
     }
 
 
-def test_edit(article: ArticleModel, client: FlaskClient):
+def test_edit(article: models.ArticleModel, client: FlaskClient):
     response = client.patch(
         f"/articles/{article.id}",
         json={
@@ -89,7 +89,7 @@ def test_edit(article: ArticleModel, client: FlaskClient):
     }
 
 
-def test_edit_one_field(article: ArticleModel, client: FlaskClient):
+def test_edit_one_field(article: models.ArticleModel, client: FlaskClient):
     response = client.patch(
         f"/articles/{article.id}",
         json={
@@ -114,7 +114,7 @@ def test_edit_one_field(article: ArticleModel, client: FlaskClient):
     }
 
 
-def test_edit_no_fields(article: ArticleModel, client: FlaskClient):
+def test_edit_no_fields(article: models.ArticleModel, client: FlaskClient):
     response = client.patch(
         f"/articles/{article.id}",
         json={"data": {"type": "articles", "id": str(article.id), "attributes": {}}},
@@ -135,7 +135,7 @@ def test_edit_no_fields(article: ArticleModel, client: FlaskClient):
     }
 
 
-def test_edit_validation_error(article: ArticleModel, client: FlaskClient):
+def test_edit_validation_error(article: models.ArticleModel, client: FlaskClient):
     response = client.patch(
         f"/articles/{article.id}",
         json={

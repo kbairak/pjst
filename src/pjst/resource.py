@@ -2,12 +2,9 @@ from typing import Any
 
 import pydantic
 
-from pjst.exceptions import (
-    BadRequest,
-    convert_pydantic_validationerror_to_pjst_badrequest,
-)
+from pjst import exceptions as pjst_exceptions
 
-from .types import Document, Resource, Response
+from . import types as pjst_types
 
 
 class ResourceHandler:
@@ -26,26 +23,34 @@ class ResourceHandler:
         raise NotImplementedError()
 
     @classmethod
-    def _postprocess_one(cls, simple_response: Response) -> Document:
+    def _postprocess_one(
+        cls, simple_response: pjst_types.Response
+    ) -> pjst_types.Document:
         serialized_object = cls.serialize(simple_response.data)
         serialized_object.type = cls.TYPE
-        return Document(data=serialized_object, links=simple_response.links)
+        return pjst_types.Document(data=serialized_object, links=simple_response.links)
 
     @classmethod
     def _process_body(cls, body_raw: Any, annotation: type) -> Any:
         try:
             if isinstance(body_raw, (str, bytes)):
-                body = Document.model_validate_json(body_raw)
+                body = pjst_types.Document.model_validate_json(body_raw)
             else:
-                body = Document.model_validate(body_raw)
+                body = pjst_types.Document.model_validate(body_raw)
         except pydantic.ValidationError as exc:
-            raise convert_pydantic_validationerror_to_pjst_badrequest(exc)
-        if not isinstance(body.data, Resource):
-            raise BadRequest("Invalid data field", source={"pointer": "/data"})
+            raise pjst_exceptions.convert_pydantic_validationerror_to_pjst_badrequest(
+                exc
+            )
+        if not isinstance(body.data, pjst_types.Resource):
+            raise pjst_exceptions.BadRequest(
+                "Invalid data field", source={"pointer": "/data"}
+            )
         if issubclass(annotation, pydantic.BaseModel):
             try:
                 return annotation.model_validate(body.data.model_dump())
             except pydantic.ValidationError as exc:
-                raise convert_pydantic_validationerror_to_pjst_badrequest(exc)
+                raise pjst_exceptions.convert_pydantic_validationerror_to_pjst_badrequest(
+                    exc
+                )
         else:
             return body.data
