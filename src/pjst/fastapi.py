@@ -1,6 +1,6 @@
 import inspect
 
-from fastapi import FastAPI, Request
+import fastapi
 from fastapi.responses import JSONResponse
 
 from pjst import exceptions as pjst_exceptions
@@ -13,8 +13,10 @@ class JsonApiResponse(JSONResponse):
     media_type = "application/vnd.api+json"
 
 
-def register(app: FastAPI, resource_cls: type[ResourceHandler]) -> None:
-    async def _one_view(obj_id: str, request: Request) -> JsonApiResponse:
+def register(app: fastapi.FastAPI, resource_cls: type[ResourceHandler]) -> None:
+    async def _one_view(
+        obj_id: str, request: fastapi.Request
+    ) -> JsonApiResponse | fastapi.Response:
         try:
             if request.method == "GET":
                 simple_response = resource_cls.get_one(obj_id)
@@ -30,7 +32,11 @@ def register(app: FastAPI, resource_cls: type[ResourceHandler]) -> None:
                         f"ID in URL ({obj_id}) does not match ID in body ({obj.id})"
                     )
                 simple_response = resource_cls.edit_one(obj)
-            else:
+            elif request.method == "DELETE":
+                simple_response = resource_cls.delete_one(obj_id)
+                if simple_response is None:
+                    return fastapi.Response("", status_code=204)
+            else:  # pragma: no cover
                 raise pjst_exceptions.MethodNotAllowed(
                     f"Method {request.method} not allowed"
                 )
@@ -39,7 +45,7 @@ def register(app: FastAPI, resource_cls: type[ResourceHandler]) -> None:
                 pjst_types.Document(errors=exc.render()).model_dump(exclude_unset=True),
                 status_code=exc.status,
             )
-        if not isinstance(simple_response, pjst_types.Response):
+        if not isinstance(simple_response, pjst_types.fastapi.Response):
             return simple_response
         processed_response = resource_cls._postprocess_one(simple_response)
         if "self" not in processed_response.links:
@@ -63,6 +69,12 @@ def register(app: FastAPI, resource_cls: type[ResourceHandler]) -> None:
 
     if hasdirectattr(resource_cls, "edit_one"):
         app.patch(
+            f"/{resource_cls.TYPE}/{{obj_id}}",
+            response_model=inspect.signature(resource_cls.serialize).return_annotation,
+        )(_one_view)
+
+    if hasdirectattr(resource_cls, "delete_one"):
+        app.delete(
             f"/{resource_cls.TYPE}/{{obj_id}}",
             response_model=inspect.signature(resource_cls.serialize).return_annotation,
         )(_one_view)

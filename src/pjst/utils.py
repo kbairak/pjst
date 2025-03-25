@@ -6,5 +6,5 @@ def hasdirectattr(cls: type[ResourceHandler], method: str) -> bool:
         attr = getattr(cls, method)
         name = attr.__qualname__
         return name[: len(cls.__name__)] == cls.__name__
-    except AttributeError:
+    except AttributeError:  # pragma: no cover
         return False

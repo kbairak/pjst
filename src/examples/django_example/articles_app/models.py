@@ -8,5 +8,5 @@ class ArticleModel(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    def __str__(self):
+    def __str__(self):  # pragma: no cover
         return f"{self.__class__.__name__}(title={self.title!r}, ...)"

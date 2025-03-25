@@ -1,6 +1,7 @@
 import pytest
 from flask import Flask
 from flask.testing import FlaskClient
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from . import models
@@ -79,6 +80,54 @@ def test_edit(article: models.ArticleModel, client: FlaskClient):
             "type": "articles",
         },
         "links": {"self": f"/articles/{article.id}"},
+    }
+
+
+def test_edit_not_found(client: FlaskClient):
+    response = client.patch(
+        "/articles/1",
+        json={
+            "data": {
+                "type": "articles",
+                "id": "1",
+                "attributes": {"content": "New content", "title": "New title"},
+            }
+        },
+    )
+    assert response.status_code == 404
+    assert response.json == {
+        "errors": [
+            {
+                "code": "not_found",
+                "detail": "Article with id '1' not found",
+                "status": "404",
+                "title": "Not found",
+            }
+        ]
+    }
+
+
+def test_edit_different_id(client: FlaskClient):
+    response = client.patch(
+        "/articles/1",
+        json={
+            "data": {
+                "type": "articles",
+                "id": "2",
+                "attributes": {"content": "New content", "title": "New title"},
+            }
+        },
+    )
+    assert response.status_code == 400
+    assert response.json == {
+        "errors": [
+            {
+                "code": "bad_request",
+                "detail": "ID in URL (1) does not match ID in body (2)",
+                "status": "400",
+                "title": "Bad request",
+            }
+        ]
     }
 
 
@@ -176,4 +225,32 @@ def test_edit_extra_fields(article: models.ArticleModel, client: FlaskClient):
                 "title": "extra_forbidden",
             }
         ],
+    }
+
+
+def test_delete_article(article: models.ArticleModel, client: FlaskClient):
+    response = client.delete(f"/articles/{article.id}")
+    assert response.status_code == 204
+    assert response.data == b""
+    with Session(models.engine) as session:
+        assert (
+            session.scalars(
+                select(models.ArticleModel).where(models.ArticleModel.id == article.id)
+            ).first()
+            is None
+        )
+
+
+def test_delete_article_not_found(client: FlaskClient):
+    response = client.delete("/articles/1")
+    assert response.status_code == 404
+    assert response.json == {
+        "errors": [
+            {
+                "code": "not_found",
+                "detail": "Article with id '1' not found",
+                "status": "404",
+                "title": "Not found",
+            }
+        ]
     }

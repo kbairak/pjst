@@ -11,7 +11,9 @@ from .utils import hasdirectattr
 def register(app: Flask, resource_cls: type[ResourceHandler]) -> None:
     def _one_view(
         obj_id: str,
-    ) -> tuple[dict, dict[str, str]] | tuple[dict, int, dict[str, str]]:
+    ) -> (
+        tuple[dict, dict[str, str]] | tuple[dict, int, dict[str, str]] | tuple[str, int]
+    ):
         try:
             if request.method == "GET":
                 simple_response = resource_cls.get_one(obj_id)
@@ -27,7 +29,11 @@ def register(app: Flask, resource_cls: type[ResourceHandler]) -> None:
                         f"ID in URL ({obj_id}) does not match ID in body ({obj.id})"
                     )
                 simple_response = resource_cls.edit_one(obj)
-            else:
+            elif request.method == "DELETE":
+                simple_response = resource_cls.delete_one(obj_id)
+                if simple_response is None:
+                    return "", 204
+            else:  # pragma: no cover
                 raise pjst_exceptions.MethodNotAllowed(
                     f"Method {request.method} not allowed"
                 )
@@ -57,7 +63,11 @@ def register(app: Flask, resource_cls: type[ResourceHandler]) -> None:
             "Content-Type": "application/vnd.api+json"
         }
 
-    if hasdirectattr(resource_cls, "get_one") or hasdirectattr(
-        resource_cls, "edit_one"
+    if (
+        hasdirectattr(resource_cls, "get_one")
+        or hasdirectattr(resource_cls, "edit_one")
+        or hasdirectattr(resource_cls, "delete_one")
     ):
-        app.route(f"/{resource_cls.TYPE}/<obj_id>", methods=["GET", "PATCH"])(_one_view)
+        app.route(f"/{resource_cls.TYPE}/<obj_id>", methods=["GET", "PATCH", "DELETE"])(
+            _one_view
+        )

@@ -32,7 +32,11 @@ def _one_view_factory(
                         f"ID in URL ({obj_id}) does not match ID in body ({obj.id})"
                     )
                 simple_response = resource_cls.edit_one(obj)
-            else:
+            elif request.method == "DELETE":
+                simple_response = resource_cls.delete_one(obj_id)
+                if simple_response is None:
+                    return django_http.HttpResponse("", status=204)
+            else:  # pragma: no cover
                 raise pjst_exceptions.MethodNotAllowed(
                     f"Method {request.method} not allowed"
                 )
@@ -69,8 +73,10 @@ def _one_view_factory(
 
 def register(resource_cls: type[ResourceHandler]) -> list[URLPattern]:
     result = []
-    if hasdirectattr(resource_cls, "get_one") or hasdirectattr(
-        resource_cls, "edit_one"
+    if (
+        hasdirectattr(resource_cls, "get_one")
+        or hasdirectattr(resource_cls, "edit_one")
+        or hasdirectattr(resource_cls, "delete_one")
     ):
         result.append(
             path(

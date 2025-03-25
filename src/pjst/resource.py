@@ -11,15 +11,19 @@ class ResourceHandler:
     TYPE: str
 
     @classmethod
-    def get_one(cls, obj_id: str) -> Any:
+    def get_one(cls, obj_id: str) -> Any:  # pragma: no cover
         raise NotImplementedError()
 
     @classmethod
-    def edit_one(cls, obj: Any) -> Any:
+    def edit_one(cls, obj: Any) -> Any:  # pragma: no cover
         raise NotImplementedError()
 
     @classmethod
-    def serialize(cls, obj: Any) -> Any:
+    def delete_one(cls, obj_id: str) -> None:  # pragma: no cover
+        raise NotImplementedError()
+
+    @classmethod
+    def serialize(cls, obj: Any) -> Any:  # pragma: no cover
         raise NotImplementedError()
 
     @classmethod
@@ -54,5 +58,5 @@ class ResourceHandler:
                 raise pjst_exceptions.convert_pydantic_validationerror_to_pjst_badrequest(
                     exc
                 )
-        else:
+        else:  # pragma: no cover
             return body.data

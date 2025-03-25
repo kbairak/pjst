@@ -30,5 +30,5 @@ if os.environ.get("TESTING"):
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
-else:
+else:  # pragma: no cover
     engine = create_engine("sqlite:///src/examples/db.sqlite3")

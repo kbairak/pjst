@@ -62,6 +62,18 @@ class ArticleResourceHandler(ResourceHandler):
         return pjst_types.Response(data=article)
 
     @classmethod
+    def delete_one(cls, obj_id: str) -> None:
+        with Session(models.engine) as session:
+            try:
+                article = session.scalars(
+                    select(models.ArticleModel).where(models.ArticleModel.id == obj_id)
+                ).one()
+            except NoResultFound:
+                raise pjst_exceptions.NotFound(f"Article with id '{obj_id}' not found")
+            session.delete(article)
+            session.commit()
+
+    @classmethod
     def serialize(cls, obj: models.ArticleModel) -> ArticleSchema:
         return ArticleSchema(
             id=str(obj.id),

@@ -51,6 +51,12 @@ class ArticleResourceHandler(ResourceHandler):
         return pjst_types.Response(data=article)
 
     @classmethod
+    def delete_one(cls, obj_id: str) -> None:
+        count, _ = ArticleModel.objects.filter(id=obj_id).delete()
+        if count == 0:
+            raise pjst_exceptions.NotFound(f"Article with id '{obj_id}' not found")
+
+    @classmethod
     def serialize(cls, obj: ArticleModel) -> ArticleSchema:
         return ArticleSchema(
             id=str(obj.id),

@@ -75,6 +75,62 @@ def test_edit(article: ArticleModel, client: django.test.Client):
 
 
 @pytest.mark.django_db
+def test_edit_not_found(client: django.test.Client):
+    response = client.patch(
+        "/articles/1",
+        data=json.dumps(
+            {
+                "data": {
+                    "type": "articles",
+                    "id": "1",
+                    "attributes": {"title": "New title", "content": "New content"},
+                }
+            }
+        ),
+        content_type="application/vnd.api+json",
+    )
+    assert response.status_code == 404
+    assert response.json() == {
+        "errors": [
+            {
+                "code": "not_found",
+                "detail": "Article with id '1' not found",
+                "status": "404",
+                "title": "Not found",
+            }
+        ]
+    }
+
+
+@pytest.mark.django_db
+def test_edit_different_id(client: django.test.Client):
+    response = client.patch(
+        "/articles/1",
+        data=json.dumps(
+            {
+                "data": {
+                    "type": "articles",
+                    "id": "2",
+                    "attributes": {"title": "New title", "content": "New content"},
+                }
+            }
+        ),
+        content_type="application/vnd.api+json",
+    )
+    assert response.status_code == 400
+    assert response.json() == {
+        "errors": [
+            {
+                "code": "bad_request",
+                "detail": "ID in URL (1) does not match ID in body (2)",
+                "status": "400",
+                "title": "Bad request",
+            }
+        ]
+    }
+
+
+@pytest.mark.django_db
 def test_edit_one_field(article: ArticleModel, client: django.test.Client):
     response = client.patch(
         f"/articles/{article.id}",
@@ -186,4 +242,28 @@ def test_edit_extra_fields(article: ArticleModel, client: django.test.Client):
                 "source": {"pointer": "/attributes/age"},
             }
         ],
+    }
+
+
+@pytest.mark.django_db
+def test_delete_article(article: ArticleModel, client: django.test.Client):
+    response = client.delete(f"/articles/{article.id}")
+    assert response.status_code == 204
+    assert response.content == b""
+    assert not ArticleModel.objects.filter(id=article.id).exists()
+
+
+@pytest.mark.django_db
+def test_delete_article_not_found(client: django.test.Client):
+    response = client.delete("/articles/1")
+    assert response.status_code == 404
+    assert response.json() == {
+        "errors": [
+            {
+                "code": "not_found",
+                "detail": "Article with id '1' not found",
+                "status": "404",
+                "title": "Not found",
+            }
+        ]
     }
