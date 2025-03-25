@@ -1,7 +1,7 @@
 import datetime
 import os
 
-from sqlalchemy import create_engine
+from sqlalchemy import StaticPool, create_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -24,8 +24,11 @@ class ArticleModel(Base):
     )
 
 
-engine = create_engine(
-    "sqlite:///:memory:"
-    if os.environ.get("TESTING", False)
-    else "sqlite:///src/examples/db.sqlite3"
-)
+if os.environ.get("TESTING"):
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+else:
+    engine = create_engine("sqlite:///src/examples/db.sqlite3")

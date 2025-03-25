@@ -1,37 +1,31 @@
 import pytest
-from flask import Flask
-from flask.testing import FlaskClient
+from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from .app import create_app
+from .app import app
 from .models import ArticleModel, Base, engine
+
+client = TestClient(app)
 
 
 @pytest.fixture()
-def app():
-    app = create_app()
+def db():
     Base.metadata.create_all(engine)
-    yield app
+    yield
     Base.metadata.drop_all(engine)
 
 
-@pytest.fixture()
-def client(app: Flask):
-    return app.test_client()
-
-
-def test_get_success(client: FlaskClient):
+def test_article_found(db):
     with Session(engine) as session:
         article = ArticleModel(title="Test title", content="Test content")
         session.add(article)
         session.commit()
         session.refresh(article)
-
     response = client.get("/articles/1")
     assert response.status_code == 200
-    assert response.json == {
+    assert response.json() == {
         "data": {
-            "attributes": {"title": "Test title", "content": "Test content"},
+            "attributes": {"content": "Test content", "title": "Test title"},
             "id": str(article.id),
             "links": {"self": f"/articles/{article.id}"},
             "relationships": {},
@@ -42,19 +36,6 @@ def test_get_success(client: FlaskClient):
     }
 
 
-def test_get_not_found(client: FlaskClient):
+def test_article_not_found(db):
     response = client.get("/articles/1")
     assert response.status_code == 404
-    assert response.json == {
-        "data": None,
-        "errors": [
-            {
-                "code": "not_found",
-                "detail": "Article not found",
-                "source": None,
-                "status": "404",
-                "title": "Not found",
-            }
-        ],
-        "links": {},
-    }

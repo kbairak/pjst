@@ -1,8 +1,8 @@
-from flask import current_app
 from pydantic import BaseModel
 from pydantic import Field as PydanticField
+from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound
-from sqlmodel import Session, select
+from sqlalchemy.orm import Session
 
 from pjst import exceptions as pjst_exceptions
 from pjst.resource import ResourceHandler
@@ -11,7 +11,7 @@ from pjst.types import Resource, Response
 from .models import ArticleModel, engine
 
 
-class Article(Resource):
+class ArticleSchema(Resource):
     class Attributes(BaseModel):
         title: str = PydanticField(default="", examples=["Title"])
         content: str = PydanticField(default="", examples=["Content"])
@@ -24,14 +24,14 @@ class Article(Resource):
     )
 
 
-class ArticleResource(ResourceHandler):
+class ArticleResourceHandler(ResourceHandler):
     TYPE = "articles"
 
     @classmethod
     def get_one(cls, obj_id: str) -> Response:
         try:
             with Session(engine) as session:
-                article = session.exec(
+                article = session.scalars(
                     select(ArticleModel).where(ArticleModel.id == obj_id)
                 ).one()
             return Response(data=article)
@@ -39,8 +39,8 @@ class ArticleResource(ResourceHandler):
             raise pjst_exceptions.NotFound("Article not found")
 
     @classmethod
-    def serialize(cls, obj: ArticleModel) -> Article:
-        return Article(
+    def serialize(cls, obj: ArticleModel) -> ArticleSchema:
+        return ArticleSchema(
             id=str(obj.id),
-            attributes=Article.Attributes(title=obj.title, content=obj.content),
+            attributes=ArticleSchema.Attributes(title=obj.title, content=obj.content),
         )

@@ -1,7 +1,7 @@
 from django.db import models
 
 
-class Article(models.Model):
+class ArticleModel(models.Model):
     id: int
     title = models.CharField(max_length=100)
     content = models.TextField()
@@ -9,4 +9,4 @@ class Article(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"Article(title={self.title!r}, ...)"
+        return f"{self.__class__.__name__}(title={self.title!r}, ...)"

@@ -1,12 +1,12 @@
 import django.test
 import pytest
 
-from .models import Article
+from .models import ArticleModel
 
 
 @pytest.mark.django_db
 def test_get_article(client: django.test.Client):
-    article = Article.objects.create(title="Test", content="Test")
+    article = ArticleModel.objects.create(title="Test", content="Test")
     response = client.get(f"/articles/{article.id}")
     assert response.status_code == 200
     assert response.json() == {

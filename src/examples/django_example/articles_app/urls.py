@@ -1,7 +1,7 @@
 from pjst.django import register
 
-from .views import ArticleResource
+from .views import ArticleResourceHandler
 
 urlpatterns = [
-    *register(ArticleResource),
+    *register(ArticleResourceHandler),
 ]
