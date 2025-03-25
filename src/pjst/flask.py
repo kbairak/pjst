@@ -1,16 +1,34 @@
+import inspect
+
 from flask import Flask, request
 
-from pjst.exceptions import PjstException
-from pjst.resource import ResourceHandler
-from pjst.types import Document, Resource, Response
+from .exceptions import BadRequest, MethodNotAllowed, PjstException
+from .resource import ResourceHandler
+from .types import Document, Resource, Response
+from .utils import hasdirectattr
 
 
 def register(app: Flask, resource_cls: type[ResourceHandler]) -> None:
-    def _get_one(
+    def _one_view(
         obj_id: str,
     ) -> tuple[dict, dict[str, str]] | tuple[dict, int, dict[str, str]]:
         try:
-            simple_response = resource_cls.get_one(obj_id)
+            if request.method == "GET":
+                simple_response = resource_cls.get_one(obj_id)
+            elif request.method == "PATCH":
+                obj = resource_cls._process_body(
+                    request.json,
+                    inspect.signature(resource_cls.edit_one)
+                    .parameters["obj"]
+                    .annotation,
+                )
+                if isinstance(obj, Resource) and obj.id != obj_id:
+                    raise BadRequest(
+                        f"ID in URL ({obj_id}) does not match ID in body ({obj.id})"
+                    )
+                simple_response = resource_cls.edit_one(obj)
+            else:
+                raise MethodNotAllowed(f"Method {request.method} not allowed")
         except PjstException as exc:
             return (
                 Document(errors=exc.render()).model_dump(),
@@ -22,13 +40,16 @@ def register(app: Flask, resource_cls: type[ResourceHandler]) -> None:
         if not isinstance(simple_response, Response):
             return simple_response
         processed_response = resource_cls._postprocess_one(simple_response)
-        if "links" not in processed_response.links:
+        if "self" not in processed_response.links:
             processed_response.links["self"] = request.path
         assert isinstance(processed_response.data, Resource)
-        if "links" not in processed_response.data.links:
+        if "self" not in processed_response.data.links:
             processed_response.data.links["self"] = request.path
         return processed_response.model_dump(), {
             "Content-Type": "application/vnd.api+json"
         }
 
-    app.route(f"/{resource_cls.TYPE}/<obj_id>")(_get_one)
+    if hasdirectattr(resource_cls, "get_one") or hasdirectattr(
+        resource_cls, "edit_one"
+    ):
+        app.route(f"/{resource_cls.TYPE}/<obj_id>", methods=["GET", "PATCH"])(_one_view)

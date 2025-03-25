@@ -8,15 +8,7 @@ from pjst.exceptions import BadRequest, MethodNotAllowed, PjstException
 from pjst.types import Document, Resource, Response
 
 from .resource import ResourceHandler
-
-
-def _hasdirectattr(cls: type[ResourceHandler], method: str) -> bool:
-    try:
-        attr = getattr(cls, method)
-        name = attr.__qualname__
-        return name[: len(cls.__name__)] == cls.__name__
-    except AttributeError:
-        return False
+from .utils import hasdirectattr
 
 
 def _get_one_view(resource_cls: type[ResourceHandler]) -> Callable[..., HttpResponse]:
@@ -66,7 +58,7 @@ def _get_one_view(resource_cls: type[ResourceHandler]) -> Callable[..., HttpResp
 
 def register(resource_cls: type[ResourceHandler]) -> list[URLPattern]:
     result = []
-    if _hasdirectattr(resource_cls, "get_one") or _hasdirectattr(
+    if hasdirectattr(resource_cls, "get_one") or hasdirectattr(
         resource_cls, "edit_one"
     ):
         result.append(

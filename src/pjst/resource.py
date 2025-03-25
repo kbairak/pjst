@@ -32,9 +32,12 @@ class ResourceHandler:
         return Document(data=serialized_object, links=simple_response.links)
 
     @classmethod
-    def _process_body(cls, body_raw: bytes | str, annotation: type) -> Any:
+    def _process_body(cls, body_raw: Any, annotation: type) -> Any:
         try:
-            body = Document.model_validate_json(body_raw)
+            if isinstance(body_raw, (str, bytes)):
+                body = Document.model_validate_json(body_raw)
+            else:
+                body = Document.model_validate(body_raw)
         except pydantic.ValidationError as exc:
             raise convert_pydantic_validationerror_to_pjst_badrequest(exc)
         if not isinstance(body.data, Resource):

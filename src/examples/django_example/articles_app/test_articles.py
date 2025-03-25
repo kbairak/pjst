@@ -6,9 +6,13 @@ import pytest
 from .models import ArticleModel
 
 
+@pytest.fixture()
+def article() -> ArticleModel:
+    return ArticleModel.objects.create(title="Test title", content="Test content")
+
+
 @pytest.mark.django_db
-def test_get_article(client: django.test.Client):
-    article = ArticleModel.objects.create(title="Test title", content="Test content")
+def test_get_article(article: ArticleModel, client: django.test.Client):
     response = client.get(f"/articles/{article.id}")
     assert response.status_code == 200
     assert response.json() == {
@@ -46,8 +50,7 @@ def test_get_not_found(client: django.test.Client):
 
 
 @pytest.mark.django_db
-def test_edit(client: django.test.Client):
-    article = ArticleModel.objects.create(title="Test title", content="Test content")
+def test_edit(article: ArticleModel, client: django.test.Client):
     response = client.patch(
         f"/articles/{article.id}",
         data=json.dumps(
@@ -79,8 +82,7 @@ def test_edit(client: django.test.Client):
 
 
 @pytest.mark.django_db
-def test_edit_one_field(client: django.test.Client):
-    article = ArticleModel.objects.create(title="Test title", content="Test content")
+def test_edit_one_field(article: ArticleModel, client: django.test.Client):
     response = client.patch(
         f"/articles/{article.id}",
         data=json.dumps(
@@ -112,8 +114,7 @@ def test_edit_one_field(client: django.test.Client):
 
 
 @pytest.mark.django_db
-def test_edit_no_fields(client: django.test.Client):
-    article = ArticleModel.objects.create(title="Test title", content="Test content")
+def test_edit_no_fields(article: ArticleModel, client: django.test.Client):
     response = client.patch(
         f"/articles/{article.id}",
         data=json.dumps(
@@ -138,8 +139,7 @@ def test_edit_no_fields(client: django.test.Client):
 
 
 @pytest.mark.django_db
-def test_edit_validation_error(client: django.test.Client):
-    article = ArticleModel.objects.create(title="Test title", content="Test content")
+def test_edit_validation_error(article: ArticleModel, client: django.test.Client):
     response = client.patch(
         f"/articles/{article.id}",
         data=json.dumps(
