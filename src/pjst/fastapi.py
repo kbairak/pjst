@@ -3,9 +3,10 @@ import inspect
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from pjst.exceptions import PjstException
+from pjst.exceptions import BadRequest, MethodNotAllowed, PjstException
 from pjst.resource import ResourceHandler
 from pjst.types import Document, Resource, Response
+from pjst.utils import hasdirectattr
 
 
 class JsonApiResponse(JSONResponse):
@@ -13,9 +14,24 @@ class JsonApiResponse(JSONResponse):
 
 
 def register(app: FastAPI, resource_cls: type[ResourceHandler]) -> None:
-    def _get_one(obj_id: str, request: Request) -> JsonApiResponse:
+    async def _one_view(obj_id: str, request: Request) -> JsonApiResponse:
         try:
-            simple_response = resource_cls.get_one(obj_id)
+            if request.method == "GET":
+                simple_response = resource_cls.get_one(obj_id)
+            elif request.method == "PATCH":
+                obj = resource_cls._process_body(
+                    await request.json(),
+                    inspect.signature(resource_cls.edit_one)
+                    .parameters["obj"]
+                    .annotation,
+                )
+                if isinstance(obj, Resource) and obj.id != obj_id:
+                    raise BadRequest(
+                        f"ID in URL ({obj_id}) does not match ID in body ({obj.id})"
+                    )
+                simple_response = resource_cls.edit_one(obj)
+            else:
+                raise MethodNotAllowed(f"Method {request.method} not allowed")
         except PjstException as exc:
             return JsonApiResponse(
                 Document(errors=exc.render()).model_dump(), status_code=exc.status
@@ -23,14 +39,21 @@ def register(app: FastAPI, resource_cls: type[ResourceHandler]) -> None:
         if not isinstance(simple_response, Response):
             return simple_response
         processed_response = resource_cls._postprocess_one(simple_response)
-        if "links" not in processed_response.links:
+        if "self" not in processed_response.links:
             processed_response.links["self"] = request.url.path
         assert isinstance(processed_response.data, Resource)
-        if "links" not in processed_response.data.links:
+        if "self" not in processed_response.data.links:
             processed_response.data.links["self"] = request.url.path
         return JsonApiResponse(processed_response.model_dump())
 
-    app.get(
-        f"/{resource_cls.TYPE}/{{obj_id}}",
-        response_model=inspect.signature(resource_cls.serialize).return_annotation,
-    )(_get_one)
+    if hasdirectattr(resource_cls, "get_one"):
+        app.get(
+            f"/{resource_cls.TYPE}/{{obj_id}}",
+            response_model=inspect.signature(resource_cls.serialize).return_annotation,
+        )(_one_view)
+
+    if hasdirectattr(resource_cls, "edit_one"):
+        app.patch(
+            f"/{resource_cls.TYPE}/{{obj_id}}",
+            response_model=inspect.signature(resource_cls.serialize).return_annotation,
+        )(_one_view)

@@ -38,6 +38,25 @@ class ArticleResourceHandler(ResourceHandler):
             raise pjst_exceptions.NotFound("ArticleSchema not found")
 
     @classmethod
+    def edit_one(cls, obj: ArticleSchema) -> Response:
+        if not obj.attributes.model_fields_set:
+            raise pjst_exceptions.BadRequest("At least one attribute must be set")
+        with Session(engine) as session:
+            try:
+                article = session.scalars(
+                    select(ArticleModel).where(ArticleModel.id == obj.id)
+                ).one()
+            except NoResultFound:
+                raise pjst_exceptions.NotFound(f"Article with id '{obj.id}' not found")
+            if "title" in obj.attributes.model_fields_set:
+                article.title = obj.attributes.title
+            if "content" in obj.attributes.model_fields_set:
+                article.content = obj.attributes.content
+            session.commit()
+            session.refresh(article)
+        return Response(data=article)
+
+    @classmethod
     def serialize(cls, obj: ArticleModel) -> ArticleSchema:
         return ArticleSchema(
             id=str(obj.id),
