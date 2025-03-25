@@ -36,18 +36,24 @@ def register(app: FastAPI, resource_cls: type[ResourceHandler]) -> None:
                 )
         except pjst_exceptions.PjstException as exc:
             return JsonApiResponse(
-                pjst_types.Document(errors=exc.render()).model_dump(),
+                pjst_types.Document(errors=exc.render()).model_dump(exclude_unset=True),
                 status_code=exc.status,
             )
         if not isinstance(simple_response, pjst_types.Response):
             return simple_response
         processed_response = resource_cls._postprocess_one(simple_response)
         if "self" not in processed_response.links:
-            processed_response.links["self"] = request.url.path
+            processed_response.links = {
+                **processed_response.links,
+                "self": request.url.path,
+            }
         assert isinstance(processed_response.data, pjst_types.Resource)
         if "self" not in processed_response.data.links:
-            processed_response.data.links["self"] = request.url.path
-        return JsonApiResponse(processed_response.model_dump())
+            processed_response.data.links = {
+                **processed_response.data.links,
+                "self": request.url.path,
+            }
+        return JsonApiResponse(processed_response.model_dump(exclude_unset=True))
 
     if hasdirectattr(resource_cls, "get_one"):
         app.get(

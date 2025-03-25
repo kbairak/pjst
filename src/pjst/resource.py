@@ -47,7 +47,9 @@ class ResourceHandler:
             )
         if issubclass(annotation, pydantic.BaseModel):
             try:
-                return annotation.model_validate(body.data.model_dump())
+                return annotation.model_validate(
+                    body.data.model_dump(exclude_unset=True)
+                )
             except pydantic.ValidationError as exc:
                 raise pjst_exceptions.convert_pydantic_validationerror_to_pjst_badrequest(
                     exc

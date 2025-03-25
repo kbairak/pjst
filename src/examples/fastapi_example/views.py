@@ -42,7 +42,10 @@ class ArticleResourceHandler(ResourceHandler):
     @classmethod
     def edit_one(cls, obj: ArticleSchema) -> pjst_types.Response:
         if not obj.attributes.model_fields_set:
-            raise pjst_exceptions.BadRequest("At least one attribute must be set")
+            raise pjst_exceptions.BadRequest(
+                "At least one attribute must be set",
+                source={"pointer": "/data/attributes"},
+            )
         with Session(models.engine) as session:
             try:
                 article = session.scalars(

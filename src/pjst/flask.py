@@ -33,7 +33,7 @@ def register(app: Flask, resource_cls: type[ResourceHandler]) -> None:
                 )
         except pjst_exceptions.PjstException as exc:
             return (
-                pjst_types.Document(errors=exc.render()).model_dump(),
+                pjst_types.Document(errors=exc.render()).model_dump(exclude_unset=True),
                 exc.status,
                 {
                     "Content-Type": "application/vnd.api+json",
@@ -43,11 +43,17 @@ def register(app: Flask, resource_cls: type[ResourceHandler]) -> None:
             return simple_response
         processed_response = resource_cls._postprocess_one(simple_response)
         if "self" not in processed_response.links:
-            processed_response.links["self"] = request.path
+            processed_response.links = {
+                **processed_response.links,
+                "self": request.path,
+            }
         assert isinstance(processed_response.data, pjst_types.Resource)
         if "self" not in processed_response.data.links:
-            processed_response.data.links["self"] = request.path
-        return processed_response.model_dump(), {
+            processed_response.data.links = {
+                **processed_response.data.links,
+                "self": request.path,
+            }
+        return processed_response.model_dump(exclude_unset=True), {
             "Content-Type": "application/vnd.api+json"
         }
 
