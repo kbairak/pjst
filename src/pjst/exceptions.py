@@ -1,5 +1,7 @@
 from functools import reduce
 
+import pydantic
+
 from pjst.types import Error
 
 
@@ -126,5 +128,28 @@ class PjstExceptionMulti(PjstException):
         return max(statuses)
 
 
+class BadRequest(PjstExceptionSingle):
+    STATUS = 400
+
+
 class NotFound(PjstExceptionSingle):
     STATUS = 404
+
+
+class MethodNotAllowed(PjstExceptionSingle):
+    STATUS = 405
+
+
+def convert_pydantic_validationerror_to_pjst_badrequest(
+    exc: pydantic.ValidationError,
+) -> PjstExceptionMulti:
+    return PjstExceptionMulti(
+        *[
+            BadRequest(
+                error["msg"],
+                error["type"],
+                {"pointer": "/" + "/".join((str(loc) for loc in error["loc"]))},
+            )
+            for error in exc.errors()
+        ]
+    )

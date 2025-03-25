@@ -22,7 +22,7 @@ def register(app: FastAPI, resource_cls: type[ResourceHandler]) -> None:
             )
         if not isinstance(simple_response, Response):
             return simple_response
-        processed_response = resource_cls._process_one(simple_response)
+        processed_response = resource_cls._postprocess_one(simple_response)
         if "links" not in processed_response.links:
             processed_response.links["self"] = request.url.path
         assert isinstance(processed_response.data, Resource)
