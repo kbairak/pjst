@@ -38,7 +38,8 @@ def _one_view_factory(
                 )
         except pjst_exceptions.PjstException as exc:
             result = django_http.JsonResponse(
-                Document(errors=exc.render()).model_dump(), status=exc.status
+                Document(errors=exc.render()).model_dump(exclude_unset=True),
+                status=exc.status,
             )
             result["Content-Type"] = "application/vnd.api+json"
             return result
@@ -50,11 +51,16 @@ def _one_view_factory(
             f"{resource_cls.TYPE}_object", kwargs={"obj_id": processed_response.data.id}
         )
         if "self" not in processed_response.links:
-            processed_response.links["self"] = self_link
+            processed_response.links = {**processed_response.links, "self": self_link}
         assert isinstance(processed_response.data, Resource)
         if "self" not in processed_response.data.links:
-            processed_response.data.links["self"] = self_link
-        result = django_http.JsonResponse(processed_response.model_dump())
+            processed_response.data.links = {
+                **processed_response.data.links,
+                "self": self_link,
+            }
+        result = django_http.JsonResponse(
+            processed_response.model_dump(exclude_unset=True)
+        )
         result["Content-Type"] = "application/vnd.api+json"
         return result
 

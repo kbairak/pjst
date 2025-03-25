@@ -142,3 +142,34 @@ def test_edit_validation_error(article: models.ArticleModel):
         ],
         "links": {},
     }
+
+
+def test_edit_extra_fields(article: models.ArticleModel):
+    response = client.patch(
+        f"/articles/{article.id}",
+        json={
+            "data": {
+                "type": "articles",
+                "id": str(article.id),
+                "attributes": {
+                    "title": "New title",
+                    "content": "New content",
+                    "age": 3,
+                },
+            }
+        },
+    )
+    assert response.status_code == 400, response.json()
+    assert response.json() == {
+        "data": None,
+        "errors": [
+            {
+                "code": "bad_request",
+                "detail": "Extra inputs are not permitted",
+                "source": {"pointer": "/attributes/age"},
+                "status": "400",
+                "title": "extra_forbidden",
+            }
+        ],
+        "links": {},
+    }

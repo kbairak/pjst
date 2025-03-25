@@ -20,10 +20,8 @@ def test_get_article(article: ArticleModel, client: django.test.Client):
             "type": "articles",
             "id": "1",
             "attributes": {"title": "Test title", "content": "Test content"},
-            "relationships": {},
             "links": {"self": f"/articles/{article.id}"},
         },
-        "errors": None,
         "links": {"self": f"/articles/{article.id}"},
     }
     assert response.headers["Content-Type"] == "application/vnd.api+json"
@@ -34,17 +32,14 @@ def test_get_not_found(client: django.test.Client):
     response = client.get("/articles/1")
     assert response.status_code == 404
     assert response.json() == {
-        "data": None,
         "errors": [
             {
                 "status": "404",
                 "code": "not_found",
                 "title": "Not found",
                 "detail": "Article not found",
-                "source": None,
             }
         ],
-        "links": {},
     }
     assert response.headers["Content-Type"] == "application/vnd.api+json"
 
@@ -70,10 +65,8 @@ def test_edit(article: ArticleModel, client: django.test.Client):
             "attributes": {"title": "New title", "content": "New content"},
             "id": "1",
             "links": {"self": "/articles/1"},
-            "relationships": {},
             "type": "articles",
         },
-        "errors": None,
         "links": {"self": "/articles/1"},
     }
 
@@ -102,10 +95,8 @@ def test_edit_one_field(article: ArticleModel, client: django.test.Client):
             "attributes": {"title": "New title", "content": "Test content"},
             "id": "1",
             "links": {"self": "/articles/1"},
-            "relationships": {},
             "type": "articles",
         },
-        "errors": None,
         "links": {"self": "/articles/1"},
     }
 
@@ -124,17 +115,15 @@ def test_edit_no_fields(article: ArticleModel, client: django.test.Client):
     )
     assert response.status_code == 400
     assert response.json() == {
-        "data": None,
         "errors": [
             {
-                "code": "bad_request",
-                "detail": "At least one attribute must be set",
-                "source": None,
                 "status": "400",
+                "code": "bad_request",
                 "title": "Bad request",
+                "detail": "At least one attribute must be set",
+                "source": {"pointer": "/data/attributes"},
             }
         ],
-        "links": {},
     }
 
 
@@ -155,15 +144,46 @@ def test_edit_validation_error(article: ArticleModel, client: django.test.Client
     )
     assert response.status_code == 400
     assert response.json() == {
-        "data": None,
         "errors": [
             {
+                "status": "400",
                 "code": "bad_request",
+                "title": "string_type",
                 "detail": "Input should be a valid string",
                 "source": {"pointer": "/attributes/title"},
-                "status": "400",
-                "title": "string_type",
             }
         ],
-        "links": {},
+    }
+
+
+@pytest.mark.django_db
+def test_edit_extra_fields(article: ArticleModel, client: django.test.Client):
+    response = client.patch(
+        f"/articles/{article.id}",
+        data=json.dumps(
+            {
+                "data": {
+                    "type": "articles",
+                    "id": str(article.id),
+                    "attributes": {
+                        "title": "New title",
+                        "content": "New content",
+                        "age": 3,
+                    },
+                }
+            }
+        ),
+        content_type="application/vnd.api+json",
+    )
+    assert response.status_code == 400, response.json()
+    assert response.json() == {
+        "errors": [
+            {
+                "status": "400",
+                "code": "bad_request",
+                "title": "extra_forbidden",
+                "detail": "Extra inputs are not permitted",
+                "source": {"pointer": "/attributes/age"},
+            }
+        ],
     }

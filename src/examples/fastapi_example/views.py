@@ -12,6 +12,8 @@ from . import models
 
 class ArticleSchema(pjst_types.Resource):
     class Attributes(pydantic.BaseModel):
+        model_config = pydantic.ConfigDict(extra="forbid")
+
         title: str = pydantic.Field(default="", examples=["Title"])
         content: str = pydantic.Field(default="", examples=["Content"])
 

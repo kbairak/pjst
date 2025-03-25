@@ -9,6 +9,8 @@ from .models import ArticleModel
 
 class ArticleSchema(pjst_types.Resource):
     class Attributes(pydantic.BaseModel):
+        model_config = pydantic.ConfigDict(extra="forbid")
+
         title: str = pydantic.Field(default="", examples=["Title"])
         content: str = pydantic.Field(default="", examples=["Content"])
 
@@ -33,7 +35,10 @@ class ArticleResourceHandler(ResourceHandler):
     @classmethod
     def edit_one(cls, obj: ArticleSchema) -> pjst_types.Response:
         if not obj.attributes.model_fields_set:
-            raise pjst_exceptions.BadRequest("At least one attribute must be set")
+            raise pjst_exceptions.BadRequest(
+                "At least one attribute must be set",
+                source={"pointer": "/data/attributes"},
+            )
         try:
             article = ArticleModel.objects.get(id=obj.id)
         except ArticleModel.DoesNotExist:
