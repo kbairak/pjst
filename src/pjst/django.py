@@ -1,5 +1,5 @@
 import inspect
-from typing import Callable
+from typing import Callable, cast
 
 from django import http as django_http
 from django.urls import URLPattern, path, reverse
@@ -86,6 +86,50 @@ def _one_view_factory(
     return _one_view
 
 
+def _many_view_factory(
+    resource_cls: type[ResourceHandler],
+) -> Callable[..., django_http.HttpResponse]:
+    def _many_view(request: django_http.HttpRequest) -> django_http.HttpResponse:
+        try:
+            if request.method == "GET":
+                simple_response = resource_cls.get_many()
+            else:  # pragma: no cover
+                raise pjst_exceptions.MethodNotAllowed(
+                    f"Method {request.method} not allowed"
+                )
+        except pjst_exceptions.PjstException as exc:
+            result = django_http.JsonResponse(
+                Document(errors=exc.render()).model_dump(exclude_unset=True),
+                status=exc.status,
+            )
+            result["Content-Type"] = "application/vnd.api+json"
+            return result
+        if not isinstance(simple_response, Response):
+            return simple_response
+        processed_response = resource_cls._postprocess_many(simple_response)
+        processed_response.data = cast(list[Resource], processed_response.data)
+        if "self" not in processed_response.links:
+            processed_response.links = {
+                **processed_response.links,
+                "self": reverse(f"{resource_cls.TYPE}_list"),
+            }
+        for obj in processed_response.data:
+            if "self" not in obj.links:
+                obj.links = {
+                    **obj.links,
+                    "self": reverse(
+                        f"{resource_cls.TYPE}_object", kwargs={"obj_id": obj.id}
+                    ),
+                }
+        result = django_http.JsonResponse(
+            processed_response.model_dump(exclude_unset=True)
+        )
+        result["Content-Type"] = "application/vnd.api+json"
+        return result
+
+    return _many_view
+
+
 def register(resource_cls: type[ResourceHandler]) -> list[URLPattern]:
     result = []
     if (
@@ -100,4 +144,14 @@ def register(resource_cls: type[ResourceHandler]) -> list[URLPattern]:
                 name=f"{resource_cls.TYPE}_object",
             )
         )
+
+    if hasdirectattr(resource_cls, "get_many"):
+        result.append(
+            path(
+                resource_cls.TYPE,
+                _many_view_factory(resource_cls),
+                name=f"{resource_cls.TYPE}_list",
+            )
+        )
+
     return result

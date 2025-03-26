@@ -267,3 +267,20 @@ def test_delete_one_article_not_found(client: django.test.Client):
             }
         ]
     }
+
+
+@pytest.mark.django_db
+def test_get_many(article: ArticleModel, client: django.test.Client):
+    response = client.get("/articles")
+    assert response.status_code == 200
+    assert response.json() == {
+        "data": [
+            {
+                "type": "articles",
+                "id": str(article.id),
+                "attributes": {"content": "Test content", "title": "Test title"},
+                "links": {"self": f"/articles/{article.id}"},
+            }
+        ],
+        "links": {"self": "/articles"},
+    }

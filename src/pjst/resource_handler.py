@@ -23,6 +23,10 @@ class ResourceHandler:
         raise NotImplementedError()
 
     @classmethod
+    def get_many(cls) -> pjst_types.Response:
+        raise NotImplementedError()
+
+    @classmethod
     def serialize(cls, obj: Any) -> Any:  # pragma: no cover
         raise NotImplementedError()
 
@@ -33,6 +37,16 @@ class ResourceHandler:
         serialized_object = cls.serialize(simple_response.data)
         serialized_object.type = cls.TYPE
         return pjst_types.Document(data=serialized_object, links=simple_response.links)
+
+    @classmethod
+    def _postprocess_many(
+        cls, simple_response: pjst_types.Response
+    ) -> pjst_types.Document:
+        serialized_list = []
+        for obj in simple_response.data:
+            serialized_list.append(cls.serialize(obj))
+            serialized_list[-1].type = cls.TYPE
+        return pjst_types.Document(data=serialized_list, links=simple_response.links)
 
     @classmethod
     def _process_body(cls, body_raw: Any, annotation: type) -> Any:

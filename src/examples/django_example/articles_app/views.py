@@ -57,6 +57,10 @@ class ArticleResourceHandler(ResourceHandler):
             raise pjst_exceptions.NotFound(f"Article with id '{obj_id}' not found")
 
     @classmethod
+    def get_many(cls):
+        return pjst_types.Response(data=ArticleModel.objects.all())
+
+    @classmethod
     def serialize(cls, obj: ArticleModel) -> ArticleSchema:
         return ArticleSchema(
             id=str(obj.id),
