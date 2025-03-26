@@ -12,7 +12,7 @@ def article() -> ArticleModel:
 
 
 @pytest.mark.django_db
-def test_get_article(article: ArticleModel, client: django.test.Client):
+def test_get_one(article: ArticleModel, client: django.test.Client):
     response = client.get(f"/articles/{article.id}")
     assert response.status_code == 200
     assert response.json() == {
@@ -28,7 +28,7 @@ def test_get_article(article: ArticleModel, client: django.test.Client):
 
 
 @pytest.mark.django_db
-def test_get_not_found(client: django.test.Client):
+def test_get_one_not_found(client: django.test.Client):
     response = client.get("/articles/1")
     assert response.status_code == 404
     assert response.json() == {
@@ -75,7 +75,7 @@ def test_edit(article: ArticleModel, client: django.test.Client):
 
 
 @pytest.mark.django_db
-def test_edit_not_found(client: django.test.Client):
+def test_edit_one_not_found(client: django.test.Client):
     response = client.patch(
         "/articles/1",
         data=json.dumps(
@@ -103,7 +103,7 @@ def test_edit_not_found(client: django.test.Client):
 
 
 @pytest.mark.django_db
-def test_edit_different_id(client: django.test.Client):
+def test_edit_one_different_id(client: django.test.Client):
     response = client.patch(
         "/articles/1",
         data=json.dumps(
@@ -161,7 +161,7 @@ def test_edit_one_field(article: ArticleModel, client: django.test.Client):
 
 
 @pytest.mark.django_db
-def test_edit_no_fields(article: ArticleModel, client: django.test.Client):
+def test_edit_one_no_fields(article: ArticleModel, client: django.test.Client):
     response = client.patch(
         f"/articles/{article.id}",
         data=json.dumps(
@@ -184,7 +184,7 @@ def test_edit_no_fields(article: ArticleModel, client: django.test.Client):
 
 
 @pytest.mark.django_db
-def test_edit_validation_error(article: ArticleModel, client: django.test.Client):
+def test_edit_one_validation_error(article: ArticleModel, client: django.test.Client):
     response = client.patch(
         f"/articles/{article.id}",
         data=json.dumps(
@@ -213,7 +213,7 @@ def test_edit_validation_error(article: ArticleModel, client: django.test.Client
 
 
 @pytest.mark.django_db
-def test_edit_extra_fields(article: ArticleModel, client: django.test.Client):
+def test_edit_one_extra_fields(article: ArticleModel, client: django.test.Client):
     response = client.patch(
         f"/articles/{article.id}",
         data=json.dumps(
@@ -246,7 +246,7 @@ def test_edit_extra_fields(article: ArticleModel, client: django.test.Client):
 
 
 @pytest.mark.django_db
-def test_delete_article(article: ArticleModel, client: django.test.Client):
+def test_delete_one_article(article: ArticleModel, client: django.test.Client):
     response = client.delete(f"/articles/{article.id}")
     assert response.status_code == 204
     assert response.content == b""
@@ -254,7 +254,7 @@ def test_delete_article(article: ArticleModel, client: django.test.Client):
 
 
 @pytest.mark.django_db
-def test_delete_article_not_found(client: django.test.Client):
+def test_delete_one_article_not_found(client: django.test.Client):
     response = client.delete("/articles/1")
     assert response.status_code == 404
     assert response.json() == {

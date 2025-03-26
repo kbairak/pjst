@@ -7,8 +7,8 @@ from django.urls import URLPattern, path, reverse
 from pjst import exceptions as pjst_exceptions
 from pjst.types import Document, Resource, Response
 
-from .resource import ResourceHandler
-from .utils import hasdirectattr
+from .resource_handler import ResourceHandler
+from .utils import find_annotations, hasdirectattr
 
 
 def _one_view_factory(
@@ -19,7 +19,12 @@ def _one_view_factory(
     ) -> django_http.HttpResponse:
         try:
             if request.method == "GET":
-                simple_response = resource_cls.get_one(obj_id)
+                request_parameters = find_annotations(
+                    resource_cls.get_one, django_http.HttpRequest
+                )
+                simple_response = resource_cls.get_one(
+                    obj_id, **{key: request for key in request_parameters}
+                )
             elif request.method == "PATCH":
                 obj = resource_cls._process_body(
                     request.body,
@@ -31,9 +36,19 @@ def _one_view_factory(
                     raise pjst_exceptions.BadRequest(
                         f"ID in URL ({obj_id}) does not match ID in body ({obj.id})"
                     )
-                simple_response = resource_cls.edit_one(obj)
+                request_parameters = find_annotations(
+                    resource_cls.edit_one, django_http.HttpRequest
+                )
+                simple_response = resource_cls.edit_one(
+                    obj, **{key: request for key in request_parameters}
+                )
             elif request.method == "DELETE":
-                simple_response = resource_cls.delete_one(obj_id)
+                request_parameters = find_annotations(
+                    resource_cls.delete_one, django_http.HttpRequest
+                )
+                simple_response = resource_cls.delete_one(
+                    obj_id, **{key: request for key in request_parameters}
+                )
                 if simple_response is None:
                     return django_http.HttpResponse("", status=204)
             else:  # pragma: no cover

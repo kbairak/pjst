@@ -11,7 +11,7 @@ class ResourceHandler:
     TYPE: str
 
     @classmethod
-    def get_one(cls, obj_id: str) -> Any:  # pragma: no cover
+    def get_one(cls, obj_id: str, *args, **kwargs) -> Any:  # pragma: no cover
         raise NotImplementedError()
 
     @classmethod

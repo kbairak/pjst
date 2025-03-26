@@ -10,7 +10,7 @@ class Base(DeclarativeBase):
 
 
 class ArticleModel(Base):
-    __tablename__ = "articles_app_article"
+    __tablename__ = "articles_app_articlemodel"
 
     id: Mapped[int | None] = mapped_column(primary_key=True, default=None)
     title: Mapped[str] = mapped_column()

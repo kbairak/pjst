@@ -5,8 +5,8 @@ from fastapi.responses import JSONResponse
 
 from pjst import exceptions as pjst_exceptions
 from pjst import types as pjst_types
-from pjst.resource import ResourceHandler
-from pjst.utils import hasdirectattr
+from pjst.resource_handler import ResourceHandler
+from pjst.utils import find_annotations, hasdirectattr
 
 
 class JsonApiResponse(JSONResponse):
@@ -19,7 +19,12 @@ def register(app: fastapi.FastAPI, resource_cls: type[ResourceHandler]) -> None:
     ) -> JsonApiResponse | fastapi.Response:
         try:
             if request.method == "GET":
-                simple_response = resource_cls.get_one(obj_id)
+                request_parameters = find_annotations(
+                    resource_cls.get_one, fastapi.Request
+                )
+                simple_response = resource_cls.get_one(
+                    obj_id, **{key: request for key in request_parameters}
+                )
             elif request.method == "PATCH":
                 obj = resource_cls._process_body(
                     await request.json(),
@@ -31,9 +36,19 @@ def register(app: fastapi.FastAPI, resource_cls: type[ResourceHandler]) -> None:
                     raise pjst_exceptions.BadRequest(
                         f"ID in URL ({obj_id}) does not match ID in body ({obj.id})"
                     )
-                simple_response = resource_cls.edit_one(obj)
+                request_parameters = find_annotations(
+                    resource_cls.edit_one, fastapi.Request
+                )
+                simple_response = resource_cls.edit_one(
+                    obj, **{key: request for key in request_parameters}
+                )
             elif request.method == "DELETE":
-                simple_response = resource_cls.delete_one(obj_id)
+                request_parameters = find_annotations(
+                    resource_cls.delete_one, fastapi.Request
+                )
+                simple_response = resource_cls.delete_one(
+                    obj_id, **{key: request for key in request_parameters}
+                )
                 if simple_response is None:
                     return fastapi.Response("", status_code=204)
             else:  # pragma: no cover

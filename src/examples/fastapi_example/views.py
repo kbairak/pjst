@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from pjst import exceptions as pjst_exceptions
 from pjst import types as pjst_types
-from pjst.resource import ResourceHandler
+from pjst.resource_handler import ResourceHandler
 
 from . import models
 

@@ -1,8 +1,8 @@
 django:
-	uv run --with django src/examples/django_example/manage.py runserver 8000
+	uv run src/examples/django_example/manage.py runserver 8000
 
 migrate:
-	uv run --with django src/examples/django_example/manage.py migrate
+	uv run src/examples/django_example/manage.py migrate
 
 flask:
 	uv run flask --app src.examples.flask_example.app run --reload --port 8000
