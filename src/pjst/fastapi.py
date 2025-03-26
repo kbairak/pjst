@@ -45,7 +45,7 @@ def register(app: fastapi.FastAPI, resource_cls: type[ResourceHandler]) -> None:
                 pjst_types.Document(errors=exc.render()).model_dump(exclude_unset=True),
                 status_code=exc.status,
             )
-        if not isinstance(simple_response, pjst_types.fastapi.Response):
+        if not isinstance(simple_response, pjst_types.Response):
             return simple_response
         processed_response = resource_cls._postprocess_one(simple_response)
         if "self" not in processed_response.links:
