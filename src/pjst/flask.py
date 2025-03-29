@@ -1,4 +1,3 @@
-import inspect
 from typing import cast
 
 import flask
@@ -6,7 +5,7 @@ import flask
 from . import exceptions as pjst_exceptions
 from . import types as pjst_types
 from .resource_handler import ResourceHandler
-from .utils import find_annotations, hasdirectattr
+from .utils import hasdirectattr
 
 
 def register(app: flask.Flask, resource_cls: type[ResourceHandler]) -> None:
@@ -16,43 +15,11 @@ def register(app: flask.Flask, resource_cls: type[ResourceHandler]) -> None:
         tuple[dict, dict[str, str]] | tuple[dict, int, dict[str, str]] | tuple[str, int]
     ):
         try:
-            if flask.request.method == "GET":
-                request_parameters = find_annotations(
-                    resource_cls.get_one, flask.Request
-                )
-                simple_response = resource_cls.get_one(
-                    obj_id, **{key: flask.request for key in request_parameters}
-                )
-            elif flask.request.method == "PATCH":
-                obj = resource_cls._process_body(
-                    flask.request.json,
-                    inspect.signature(resource_cls.edit_one)
-                    .parameters["obj"]
-                    .annotation,
-                )
-                if isinstance(obj, pjst_types.Resource) and obj.id != obj_id:
-                    raise pjst_exceptions.BadRequest(
-                        f"ID in URL ({obj_id}) does not match ID in body ({obj.id})"
-                    )
-                request_parameters = find_annotations(
-                    resource_cls.edit_one, flask.Request
-                )
-                simple_response = resource_cls.edit_one(
-                    obj, **{key: flask.request for key in request_parameters}
-                )
-            elif flask.request.method == "DELETE":
-                request_parameters = find_annotations(
-                    resource_cls.delete_one, flask.Request
-                )
-                simple_response = resource_cls.delete_one(
-                    obj_id, **{key: flask.request for key in request_parameters}
-                )
-                if simple_response is None:
-                    return "", 204
-            else:  # pragma: no cover
-                raise pjst_exceptions.MethodNotAllowed(
-                    f"Method {flask.request.method} not allowed"
-                )
+            simple_response = resource_cls._handle_one(
+                flask.request, flask.request.get_json(silent=True), obj_id
+            )
+            if flask.request.method == "DELETE" and simple_response is None:
+                return "", 204
         except pjst_exceptions.PjstException as exc:
             return (
                 pjst_types.Document(errors=exc.render()).model_dump(exclude_unset=True),

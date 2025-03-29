@@ -16,3 +16,6 @@ ruff:
 
 test:
 	env TESTING=1 uv run pytest
+
+debugtest:
+	env TESTING=1 uv run pytest -vvs

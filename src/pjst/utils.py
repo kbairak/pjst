@@ -1,9 +1,11 @@
 import inspect
+import typing
 
-from pjst.resource_handler import ResourceHandler
+if typing.TYPE_CHECKING:
+    from pjst.resource_handler import ResourceHandler
 
 
-def hasdirectattr(cls: type[ResourceHandler], method: str) -> bool:
+def hasdirectattr(cls: "type[ResourceHandler]", method: str) -> bool:
     try:
         attr = getattr(cls, method)
         name = attr.__qualname__

@@ -1,10 +1,11 @@
+import inspect
 from typing import Any
 
 import pydantic
 
-from pjst import exceptions as pjst_exceptions
-
+from . import exceptions as pjst_exceptions
 from . import types as pjst_types
+from .utils import find_annotations
 
 
 class ResourceHandler:
@@ -29,6 +30,37 @@ class ResourceHandler:
     @classmethod
     def serialize(cls, obj: Any) -> Any:  # pragma: no cover
         raise NotImplementedError()
+
+    @classmethod
+    def _handle_one(cls, request, request_body, obj_id: str) -> Any:
+        if request.method == "GET":
+            request_parameters = find_annotations(cls.get_one, type(request))
+            simple_response = cls.get_one(
+                obj_id, **{key: request for key in request_parameters}
+            )
+        elif request.method == "PATCH":
+            obj = cls._process_body(
+                request_body,
+                inspect.signature(cls.edit_one).parameters["obj"].annotation,
+            )
+            if isinstance(obj, pjst_types.Resource) and obj.id != obj_id:
+                raise pjst_exceptions.BadRequest(
+                    f"ID in URL ({obj_id}) does not match ID in body ({obj.id})"
+                )
+            request_parameters = find_annotations(cls.edit_one, type(request))
+            simple_response = cls.edit_one(
+                obj, **{key: request for key in request_parameters}
+            )
+        elif request.method == "DELETE":
+            request_parameters = find_annotations(cls.delete_one, type(request))
+            simple_response = cls.delete_one(
+                obj_id, **{key: request for key in request_parameters}
+            )
+        else:  # pragma: no cover
+            raise pjst_exceptions.MethodNotAllowed(
+                f"Method {request.method} not allowed"
+            )
+        return simple_response
 
     @classmethod
     def _postprocess_one(

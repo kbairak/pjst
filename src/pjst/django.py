@@ -1,14 +1,12 @@
-import inspect
 from typing import Callable, cast
 
 from django import http as django_http
 from django.urls import URLPattern, path, reverse
 
-from pjst import exceptions as pjst_exceptions
-from pjst.types import Document, Resource, Response
-
+from . import exceptions as pjst_exceptions
+from . import types as pjst_types
 from .resource_handler import ResourceHandler
-from .utils import find_annotations, hasdirectattr
+from .utils import hasdirectattr
 
 
 def _one_view_factory(
@@ -18,60 +16,26 @@ def _one_view_factory(
         request: django_http.HttpRequest, obj_id: str
     ) -> django_http.HttpResponse:
         try:
-            if request.method == "GET":
-                request_parameters = find_annotations(
-                    resource_cls.get_one, django_http.HttpRequest
-                )
-                simple_response = resource_cls.get_one(
-                    obj_id, **{key: request for key in request_parameters}
-                )
-            elif request.method == "PATCH":
-                obj = resource_cls._process_body(
-                    request.body,
-                    inspect.signature(resource_cls.edit_one)
-                    .parameters["obj"]
-                    .annotation,
-                )
-                if isinstance(obj, Resource) and obj.id != obj_id:
-                    raise pjst_exceptions.BadRequest(
-                        f"ID in URL ({obj_id}) does not match ID in body ({obj.id})"
-                    )
-                request_parameters = find_annotations(
-                    resource_cls.edit_one, django_http.HttpRequest
-                )
-                simple_response = resource_cls.edit_one(
-                    obj, **{key: request for key in request_parameters}
-                )
-            elif request.method == "DELETE":
-                request_parameters = find_annotations(
-                    resource_cls.delete_one, django_http.HttpRequest
-                )
-                simple_response = resource_cls.delete_one(
-                    obj_id, **{key: request for key in request_parameters}
-                )
-                if simple_response is None:
-                    return django_http.HttpResponse("", status=204)
-            else:  # pragma: no cover
-                raise pjst_exceptions.MethodNotAllowed(
-                    f"Method {request.method} not allowed"
-                )
+            simple_response = resource_cls._handle_one(request, request.body, obj_id)
+            if request.method == "DELETE" and simple_response is None:
+                return django_http.HttpResponse("", status=204)
         except pjst_exceptions.PjstException as exc:
             result = django_http.JsonResponse(
-                Document(errors=exc.render()).model_dump(exclude_unset=True),
+                pjst_types.Document(errors=exc.render()).model_dump(exclude_unset=True),
                 status=exc.status,
             )
             result["Content-Type"] = "application/vnd.api+json"
             return result
-        if not isinstance(simple_response, Response):
+        if not isinstance(simple_response, pjst_types.Response):
             return simple_response
         processed_response = resource_cls._postprocess_one(simple_response)
-        assert isinstance(processed_response.data, Resource)
+        assert isinstance(processed_response.data, pjst_types.Resource)
         self_link = reverse(
             f"{resource_cls.TYPE}_object", kwargs={"obj_id": processed_response.data.id}
         )
         if "self" not in processed_response.links:
             processed_response.links = {**processed_response.links, "self": self_link}
-        assert isinstance(processed_response.data, Resource)
+        assert isinstance(processed_response.data, pjst_types.Resource)
         if "self" not in processed_response.data.links:
             processed_response.data.links = {
                 **processed_response.data.links,
@@ -99,15 +63,17 @@ def _many_view_factory(
                 )
         except pjst_exceptions.PjstException as exc:
             result = django_http.JsonResponse(
-                Document(errors=exc.render()).model_dump(exclude_unset=True),
+                pjst_types.Document(errors=exc.render()).model_dump(exclude_unset=True),
                 status=exc.status,
             )
             result["Content-Type"] = "application/vnd.api+json"
             return result
-        if not isinstance(simple_response, Response):
+        if not isinstance(simple_response, pjst_types.Response):
             return simple_response
         processed_response = resource_cls._postprocess_many(simple_response)
-        processed_response.data = cast(list[Resource], processed_response.data)
+        processed_response.data = cast(
+            list[pjst_types.Resource], processed_response.data
+        )
         if "self" not in processed_response.links:
             processed_response.links = {
                 **processed_response.links,

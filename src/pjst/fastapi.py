@@ -32,43 +32,11 @@ def register(app: fastapi.FastAPI, resource_cls: type[ResourceHandler]) -> None:
 
     async def _one_view(obj_id: str, request: fastapi.Request):
         try:
-            if request.method == "GET":
-                request_parameters = find_annotations(
-                    resource_cls.get_one, fastapi.Request
-                )
-                simple_response = resource_cls.get_one(
-                    obj_id, **{key: request for key in request_parameters}
-                )
-            elif request.method == "PATCH":
-                obj = resource_cls._process_body(
-                    await request.json(),
-                    inspect.signature(resource_cls.edit_one)
-                    .parameters["obj"]
-                    .annotation,
-                )
-                if isinstance(obj, pjst_types.Resource) and obj.id != obj_id:
-                    raise pjst_exceptions.BadRequest(
-                        f"ID in URL ({obj_id}) does not match ID in body ({obj.id})"
-                    )
-                request_parameters = find_annotations(
-                    resource_cls.edit_one, fastapi.Request
-                )
-                simple_response = resource_cls.edit_one(
-                    obj, **{key: request for key in request_parameters}
-                )
-            elif request.method == "DELETE":
-                request_parameters = find_annotations(
-                    resource_cls.delete_one, fastapi.Request
-                )
-                simple_response = resource_cls.delete_one(
-                    obj_id, **{key: request for key in request_parameters}
-                )
-                if simple_response is None:
-                    return fastapi.Response("", status_code=204)
-            else:  # pragma: no cover
-                raise pjst_exceptions.MethodNotAllowed(
-                    f"Method {request.method} not allowed"
-                )
+            simple_response = resource_cls._handle_one(
+                request, await request.body(), obj_id
+            )
+            if request.method == "DELETE" and simple_response is None:
+                return fastapi.Response("", status_code=204)
         except pjst_exceptions.PjstException as exc:
             return JsonApiResponse(
                 pjst_types.Document(errors=exc.render()).model_dump(exclude_unset=True),
