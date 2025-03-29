@@ -1,3 +1,5 @@
+from typing import Callable
+
 import pytest
 from flask import Flask
 from flask.testing import FlaskClient
@@ -22,13 +24,27 @@ def client(app: Flask):
 
 
 @pytest.fixture()
-def article(app) -> models.ArticleModel:
-    with Session(models.engine) as session:
-        article = models.ArticleModel(title="Test title", content="Test content")
-        session.add(article)
-        session.commit()
-        session.refresh(article)
-    return article
+def get_articles(app) -> Callable[[int], list[models.ArticleModel]]:
+    def fn(count: int) -> list[models.ArticleModel]:
+        with Session(models.engine) as session:
+            articles = [
+                models.ArticleModel(
+                    title=f"Test title {i}", content=f"Test content {i}"
+                )
+                for i in range(1, count + 1)
+            ]
+            session.add_all(articles)
+            session.commit()
+            for article in articles:
+                session.refresh(article)
+        return articles
+
+    return fn
+
+
+@pytest.fixture()
+def article(get_articles) -> models.ArticleModel:
+    return get_articles(1)[0]
 
 
 def test_get_success(article: models.ArticleModel, client: FlaskClient):
@@ -36,7 +52,7 @@ def test_get_success(article: models.ArticleModel, client: FlaskClient):
     assert response.status_code == 200
     assert response.json == {
         "data": {
-            "attributes": {"title": "Test title", "content": "Test content"},
+            "attributes": {"title": "Test title 1", "content": "Test content 1"},
             "id": str(article.id),
             "links": {"self": f"/articles/{article.id}"},
             "type": "articles",
@@ -67,20 +83,29 @@ def test_edit(article: models.ArticleModel, client: FlaskClient):
             "data": {
                 "type": "articles",
                 "id": str(article.id),
-                "attributes": {"content": "New content", "title": "New title"},
+                "attributes": {"title": "New title", "content": "New content"},
             }
         },
     )
     assert response.status_code == 200
     assert response.json == {
         "data": {
-            "attributes": {"content": "New content", "title": "New title"},
+            "attributes": {"title": "New title", "content": "New content"},
             "id": str(article.id),
             "links": {"self": f"/articles/{article.id}"},
             "type": "articles",
         },
         "links": {"self": f"/articles/{article.id}"},
     }
+
+    with Session(models.engine) as session:
+        updated_article = session.scalars(
+            select(models.ArticleModel).where(models.ArticleModel.id == article.id)
+        ).one()
+        assert (updated_article.title, updated_article.content) == (
+            "New title",
+            "New content",
+        )
 
 
 def test_edit_not_found(client: FlaskClient):
@@ -90,7 +115,7 @@ def test_edit_not_found(client: FlaskClient):
             "data": {
                 "type": "articles",
                 "id": "1",
-                "attributes": {"content": "New content", "title": "New title"},
+                "attributes": {"title": "New title", "content": "New content"},
             }
         },
     )
@@ -114,7 +139,7 @@ def test_edit_different_id(client: FlaskClient):
             "data": {
                 "type": "articles",
                 "id": "2",
-                "attributes": {"content": "New content", "title": "New title"},
+                "attributes": {"title": "New title", "content": "New content"},
             }
         },
     )
@@ -145,13 +170,22 @@ def test_edit_one_field(article: models.ArticleModel, client: FlaskClient):
     assert response.status_code == 200
     assert response.json == {
         "data": {
-            "attributes": {"title": "New title", "content": "Test content"},
+            "attributes": {"title": "New title", "content": "Test content 1"},
             "id": str(article.id),
             "links": {"self": f"/articles/{article.id}"},
             "type": "articles",
         },
         "links": {"self": f"/articles/{article.id}"},
     }
+
+    with Session(models.engine) as session:
+        updated_article = session.scalars(
+            select(models.ArticleModel).where(models.ArticleModel.id == article.id)
+        ).one()
+        assert (updated_article.title, updated_article.content) == (
+            "New title",
+            "Test content 1",
+        )
 
 
 def test_edit_no_fields(article: models.ArticleModel, client: FlaskClient):
@@ -256,7 +290,10 @@ def test_delete_article_not_found(client: FlaskClient):
     }
 
 
-def test_get_many(article: models.ArticleModel, client: FlaskClient):
+def test_get_many(
+    get_articles: Callable[[int], list[models.ArticleModel]], client: FlaskClient
+):
+    articles = get_articles(2)
     response = client.get("/articles")
     assert response.status_code == 200
     assert response.json == {
@@ -264,8 +301,33 @@ def test_get_many(article: models.ArticleModel, client: FlaskClient):
             {
                 "type": "articles",
                 "id": str(article.id),
-                "attributes": {"content": "Test content", "title": "Test title"},
+                "attributes": {"title": article.title, "content": article.content},
                 "links": {"self": f"/articles/{article.id}"},
+            }
+            for article in articles
+        ],
+        "links": {"self": "/articles"},
+    }
+
+
+def test_get_many_with_filter(
+    get_articles: Callable[[int], list[models.ArticleModel]], client: FlaskClient
+):
+    articles = get_articles(2)
+    response = client.get(
+        "/articles", query_string={"filter[title]": articles[0].title}
+    )
+    assert response.status_code == 200
+    assert response.json == {
+        "data": [
+            {
+                "type": "articles",
+                "id": str(articles[0].id),
+                "attributes": {
+                    "title": articles[0].title,
+                    "content": articles[0].content,
+                },
+                "links": {"self": f"/articles/{articles[0].id}"},
             }
         ],
         "links": {"self": "/articles"},

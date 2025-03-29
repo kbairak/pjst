@@ -12,7 +12,7 @@ class Base(DeclarativeBase):
 class ArticleModel(Base):
     __tablename__ = "articles_app_articlemodel"
 
-    id: Mapped[int | None] = mapped_column(primary_key=True, default=None)
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     title: Mapped[str] = mapped_column()
     content: Mapped[str] = mapped_column()
     created_at: Mapped[datetime.datetime] = mapped_column(

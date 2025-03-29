@@ -1,3 +1,4 @@
+import inspect
 from typing import cast
 
 import flask
@@ -61,7 +62,29 @@ def register(app: flask.Flask, resource_cls: type[ResourceHandler]) -> None:
     def _many_view():
         try:
             if flask.request.method == "GET":
-                simple_response = resource_cls.get_many()
+                signature = inspect.signature(resource_cls.get_many)
+                kwargs = {}
+                errors = []
+                for key, value in signature.parameters.items():
+                    if isinstance(value.default, pjst_types._Filter):
+                        try:
+                            kwargs[key] = flask.request.args[f"filter[{key}]"]
+                        except KeyError:
+                            try:
+                                types = value.annotation.__args__
+                            except AttributeError:
+                                types = [value.annotation]
+                            if type(None) in types:
+                                kwargs[key] = None
+                            else:
+                                errors.append(
+                                    pjst_exceptions.BadRequest(
+                                        f"Parameter 'filter[{key}]' is required"
+                                    )
+                                )
+                if errors:
+                    raise pjst_exceptions.PjstExceptionMulti(*errors)
+                simple_response = resource_cls.get_many(**kwargs)
             else:  # pragma: no cover
                 raise pjst_exceptions.MethodNotAllowed(
                     f"Method {flask.request.method} not allowed"

@@ -74,10 +74,13 @@ class ArticleResourceHandler(ResourceHandler):
             session.commit()
 
     @classmethod
-    def get_many(cls):
+    def get_many(cls, title: str | None = pjst_types.Filter()):
         with Session(models.engine) as session:
             try:
-                articles = session.scalars(select(models.ArticleModel)).all()
+                query = select(models.ArticleModel)
+                if title is not None:
+                    query = query.where(models.ArticleModel.title == title)
+                articles = session.scalars(query).all()
             except NoResultFound:
                 raise pjst_exceptions.NotFound("No articles found")
         return pjst_types.Response(data=articles)
