@@ -1,4 +1,5 @@
 import json
+from typing import Callable
 
 import django.test
 import pytest
@@ -7,8 +8,21 @@ from .models import ArticleModel
 
 
 @pytest.fixture()
-def article() -> ArticleModel:
-    return ArticleModel.objects.create(title="Test title", content="Test content")
+def get_articles() -> Callable[[int], list[ArticleModel]]:
+    def fn(count: int) -> list[ArticleModel]:
+        return ArticleModel.objects.bulk_create(
+            [
+                ArticleModel(title=f"Test title {i}", content=f"Test content {i}")
+                for i in range(1, count + 1)
+            ]
+        )
+
+    return fn
+
+
+@pytest.fixture()
+def article(get_articles: Callable[[int], list[ArticleModel]]) -> ArticleModel:
+    return get_articles(1)[0]
 
 
 @pytest.mark.django_db
@@ -19,7 +33,7 @@ def test_get_one(article: ArticleModel, client: django.test.Client):
         "data": {
             "type": "articles",
             "id": "1",
-            "attributes": {"title": "Test title", "content": "Test content"},
+            "attributes": {"title": "Test title 1", "content": "Test content 1"},
             "links": {"self": f"/articles/{article.id}"},
         },
         "links": {"self": f"/articles/{article.id}"},
@@ -148,7 +162,7 @@ def test_edit_one_field(article: ArticleModel, client: django.test.Client):
     assert response.status_code == 200, response.json()
     assert response.json() == {
         "data": {
-            "attributes": {"title": "New title", "content": "Test content"},
+            "attributes": {"title": "New title", "content": "Test content 1"},
             "id": "1",
             "links": {"self": "/articles/1"},
             "type": "articles",
@@ -157,7 +171,7 @@ def test_edit_one_field(article: ArticleModel, client: django.test.Client):
     }
 
     article.refresh_from_db()
-    assert (article.title, article.content) == ("New title", "Test content")
+    assert (article.title, article.content) == ("New title", "Test content 1")
 
 
 @pytest.mark.django_db
@@ -270,7 +284,10 @@ def test_delete_one_article_not_found(client: django.test.Client):
 
 
 @pytest.mark.django_db
-def test_get_many(article: ArticleModel, client: django.test.Client):
+def test_get_many(
+    get_articles: Callable[[int], list[ArticleModel]], client: django.test.Client
+):
+    articles = get_articles(2)
     response = client.get("/articles")
     assert response.status_code == 200
     assert response.json() == {
@@ -278,8 +295,32 @@ def test_get_many(article: ArticleModel, client: django.test.Client):
             {
                 "type": "articles",
                 "id": str(article.id),
-                "attributes": {"content": "Test content", "title": "Test title"},
+                "attributes": {"title": article.title, "content": article.content},
                 "links": {"self": f"/articles/{article.id}"},
+            }
+            for article in articles
+        ],
+        "links": {"self": "/articles"},
+    }
+
+
+@pytest.mark.django_db
+def test_get_many_with_filter(
+    get_articles: Callable[[int], list[ArticleModel]], client: django.test.Client
+):
+    articles = get_articles(2)
+    response = client.get("/articles", {"filter[title]": articles[0].title})
+    assert response.status_code == 200
+    assert response.json() == {
+        "data": [
+            {
+                "type": "articles",
+                "id": str(articles[0].id),
+                "attributes": {
+                    "title": articles[0].title,
+                    "content": articles[0].content,
+                },
+                "links": {"self": f"/articles/{articles[0].id}"},
             }
         ],
         "links": {"self": "/articles"},

@@ -49,3 +49,11 @@ class Document(pydantic.BaseModel):
 class Response(pydantic.BaseModel):
     data: Any
     links: dict[str, str] = pydantic.Field(default_factory=dict)
+
+
+class _Filter:
+    pass
+
+
+def Filter() -> Any:
+    return _Filter()

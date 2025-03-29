@@ -57,8 +57,11 @@ class ArticleResourceHandler(ResourceHandler):
             raise pjst_exceptions.NotFound(f"Article with id '{obj_id}' not found")
 
     @classmethod
-    def get_many(cls):
-        return pjst_types.Response(data=ArticleModel.objects.all())
+    def get_many(cls, title: str | None = pjst_types.Filter()) -> pjst_types.Response:
+        queryset = ArticleModel.objects.order_by("created_at")
+        if title is not None:
+            queryset = queryset.filter(title=title)
+        return pjst_types.Response(data=queryset)
 
     @classmethod
     def serialize(cls, obj: ArticleModel) -> ArticleSchema:
