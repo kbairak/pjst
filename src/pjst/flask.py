@@ -1,4 +1,5 @@
 import inspect
+from typing import cast
 
 import flask
 
@@ -72,7 +73,7 @@ def register(app: flask.Flask, resource_cls: type[ResourceHandler]) -> None:
         if "self" not in processed_response.data.links:
             processed_response.data.links = {
                 **processed_response.data.links,
-                "self": flask.request.path,
+                "self": app.url_for(f"{resource_cls.TYPE}_object", obj_id=obj_id),
             }
         return processed_response.model_dump(exclude_unset=True), {
             "Content-Type": "application/vnd.api+json"
@@ -83,6 +84,54 @@ def register(app: flask.Flask, resource_cls: type[ResourceHandler]) -> None:
         or hasdirectattr(resource_cls, "edit_one")
         or hasdirectattr(resource_cls, "delete_one")
     ):
-        app.route(f"/{resource_cls.TYPE}/<obj_id>", methods=["GET", "PATCH", "DELETE"])(
-            _one_view
+        app.add_url_rule(
+            f"/{resource_cls.TYPE}/<obj_id>",
+            f"{resource_cls.TYPE}_object",
+            _one_view,
+            methods=["GET", "PATCH", "DELETE"],
+        )
+
+    def _many_view():
+        try:
+            if flask.request.method == "GET":
+                simple_response = resource_cls.get_many()
+            else:  # pragma: no cover
+                raise pjst_exceptions.MethodNotAllowed(
+                    f"Method {flask.request.method} not allowed"
+                )
+        except pjst_exceptions.PjstException as exc:
+            return (
+                pjst_types.Document(errors=exc.render()).model_dump(exclude_unset=True),
+                exc.status,
+                {
+                    "Content-Type": "application/vnd.api+json",
+                },
+            )
+        if not isinstance(simple_response, pjst_types.Response):
+            return simple_response
+        processed_response = resource_cls._postprocess_many(simple_response)
+        processed_response.data = cast(
+            list[pjst_types.Resource], processed_response.data
+        )
+        if "self" not in processed_response.links:
+            processed_response.links = {
+                **processed_response.links,
+                "self": flask.request.path,
+            }
+        for obj in processed_response.data:
+            if "self" not in obj.links:
+                obj.links = {
+                    **obj.links,
+                    "self": app.url_for(f"{resource_cls.TYPE}_object", obj_id=obj.id),
+                }
+        return processed_response.model_dump(exclude_unset=True), {
+            "Content-Type": "application/vnd.api+json"
+        }
+
+    if hasdirectattr(resource_cls, "get_many"):
+        app.add_url_rule(
+            f"/{resource_cls.TYPE}",
+            f"{resource_cls.TYPE}_list",
+            _many_view,
+            methods=["GET"],
         )

@@ -74,6 +74,15 @@ class ArticleResourceHandler(ResourceHandler):
             session.commit()
 
     @classmethod
+    def get_many(cls):
+        with Session(models.engine) as session:
+            try:
+                articles = session.scalars(select(models.ArticleModel)).all()
+            except NoResultFound:
+                raise pjst_exceptions.NotFound("No articles found")
+        return pjst_types.Response(data=articles)
+
+    @classmethod
     def serialize(cls, obj: models.ArticleModel) -> ArticleSchema:
         return ArticleSchema(
             id=str(obj.id),

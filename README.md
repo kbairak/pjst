@@ -7,6 +7,7 @@
 - [x] Tests
 - [x] No extra fields in validation
 - [x] Add exclude_unset=True to flask and fastapi too
+- [x] add get_many to flask and fastapi
 - [ ] async views in fastapi
-- [ ] add get_many to flask and fastapi
 - [ ] add parameters to get_many
+- [ ] Clean up schemas for fastapi docs

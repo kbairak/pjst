@@ -254,3 +254,19 @@ def test_delete_article_not_found(client: FlaskClient):
             }
         ]
     }
+
+
+def test_get_many(article: models.ArticleModel, client: FlaskClient):
+    response = client.get("/articles")
+    assert response.status_code == 200
+    assert response.json == {
+        "data": [
+            {
+                "type": "articles",
+                "id": str(article.id),
+                "attributes": {"content": "Test content", "title": "Test title"},
+                "links": {"self": f"/articles/{article.id}"},
+            }
+        ],
+        "links": {"self": "/articles"},
+    }
