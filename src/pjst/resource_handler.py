@@ -1,5 +1,5 @@
 import inspect
-from typing import Any
+from typing import Any, Mapping
 
 import pydantic
 
@@ -106,3 +106,29 @@ class ResourceHandler:
                 )
         else:  # pragma: no cover
             return body.data
+
+    @classmethod
+    def _process_filters(cls, query_params: Mapping[str, str]) -> dict[str, str]:
+        signature = inspect.signature(cls.get_many)
+        kwargs = {}
+        errors = []
+        for key, value in signature.parameters.items():
+            if isinstance(value.default, pjst_types._Filter):
+                try:
+                    kwargs[key] = query_params[f"filter[{key}]"]
+                except KeyError:
+                    try:
+                        types = value.annotation.__args__
+                    except AttributeError:
+                        types = [value.annotation]
+                    if type(None) in types:
+                        kwargs[key] = None
+                    else:
+                        errors.append(
+                            pjst_exceptions.BadRequest(
+                                f"Parameter 'filter[{key}]' is required"
+                            )
+                        )
+        if errors:
+            raise pjst_exceptions.PjstExceptionMulti(*errors)
+        return kwargs

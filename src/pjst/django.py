@@ -1,5 +1,4 @@
-import inspect
-from typing import Callable, cast
+from typing import cast
 
 from django import http as django_http
 from django.urls import URLPattern, path, reverse
@@ -10,9 +9,9 @@ from .resource_handler import ResourceHandler
 from .utils import hasdirectattr
 
 
-def _one_view_factory(
-    resource_cls: type[ResourceHandler],
-) -> Callable[..., django_http.HttpResponse]:
+def register(resource_cls: type[ResourceHandler]) -> list[URLPattern]:
+    result = []
+
     def _one_view(
         request: django_http.HttpRequest, obj_id: str
     ) -> django_http.HttpResponse:
@@ -48,37 +47,23 @@ def _one_view_factory(
         result["Content-Type"] = "application/vnd.api+json"
         return result
 
-    return _one_view
+    if (
+        hasdirectattr(resource_cls, "get_one")
+        or hasdirectattr(resource_cls, "edit_one")
+        or hasdirectattr(resource_cls, "delete_one")
+    ):
+        result.append(
+            path(
+                f"{resource_cls.TYPE}/<str:obj_id>",
+                _one_view,
+                name=f"{resource_cls.TYPE}_object",
+            )
+        )
 
-
-def _many_view_factory(
-    resource_cls: type[ResourceHandler],
-) -> Callable[..., django_http.HttpResponse]:
     def _many_view(request: django_http.HttpRequest) -> django_http.HttpResponse:
         try:
             if request.method == "GET":
-                signature = inspect.signature(resource_cls.get_many)
-                kwargs = {}
-                errors = []
-                for key, value in signature.parameters.items():
-                    if isinstance(value.default, pjst_types._Filter):
-                        try:
-                            kwargs[key] = request.GET[f"filter[{key}]"]
-                        except KeyError:
-                            try:
-                                types = value.annotation.__args__
-                            except AttributeError:
-                                types = [value.annotation]
-                            if type(None) in types:
-                                kwargs[key] = None
-                            else:
-                                errors.append(
-                                    pjst_exceptions.BadRequest(
-                                        f"Parameter 'filter[{key}]' is required"
-                                    )
-                                )
-                if errors:
-                    raise pjst_exceptions.PjstExceptionMulti(*errors)
+                kwargs = resource_cls._process_filters(request.GET)
                 simple_response = resource_cls.get_many(**kwargs)
             else:  # pragma: no cover
                 raise pjst_exceptions.MethodNotAllowed(
@@ -116,29 +101,11 @@ def _many_view_factory(
         result["Content-Type"] = "application/vnd.api+json"
         return result
 
-    return _many_view
-
-
-def register(resource_cls: type[ResourceHandler]) -> list[URLPattern]:
-    result = []
-    if (
-        hasdirectattr(resource_cls, "get_one")
-        or hasdirectattr(resource_cls, "edit_one")
-        or hasdirectattr(resource_cls, "delete_one")
-    ):
-        result.append(
-            path(
-                f"{resource_cls.TYPE}/<str:obj_id>",
-                _one_view_factory(resource_cls),
-                name=f"{resource_cls.TYPE}_object",
-            )
-        )
-
     if hasdirectattr(resource_cls, "get_many"):
         result.append(
             path(
                 resource_cls.TYPE,
-                _many_view_factory(resource_cls),
+                _many_view,
                 name=f"{resource_cls.TYPE}_list",
             )
         )

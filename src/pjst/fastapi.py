@@ -81,28 +81,7 @@ def register(app: fastapi.FastAPI, resource_cls: type[ResourceHandler]) -> None:
     async def _many_view(request: fastapi.Request):
         try:
             if request.method == "GET":
-                signature = inspect.signature(resource_cls.get_many)
-                kwargs = {}
-                errors = []
-                for key, value in signature.parameters.items():
-                    if isinstance(value.default, pjst_types._Filter):
-                        try:
-                            kwargs[key] = request.query_params[f"filter[{key}]"]
-                        except KeyError:
-                            try:
-                                types = value.annotation.__args__
-                            except AttributeError:
-                                types = [value.annotation]
-                            if type(None) in types:
-                                kwargs[key] = None
-                            else:
-                                errors.append(
-                                    pjst_exceptions.BadRequest(
-                                        f"Parameter 'filter[{key}]' is required"
-                                    )
-                                )
-                if errors:
-                    raise pjst_exceptions.PjstExceptionMulti(*errors)
+                kwargs = resource_cls._process_filters(request.query_params)
                 simple_response = resource_cls.get_many(**kwargs)
             else:  # pragma: no cover
                 raise pjst_exceptions.MethodNotAllowed(
