@@ -1,3 +1,5 @@
+from typing import Callable
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
@@ -17,13 +19,27 @@ def db():
 
 
 @pytest.fixture()
-def article(db) -> models.ArticleModel:
-    with Session(models.engine) as session:
-        article = models.ArticleModel(title="Test title", content="Test content")
-        session.add(article)
-        session.commit()
-        session.refresh(article)
-    return article
+def get_articles(db) -> Callable[[int], list[models.ArticleModel]]:
+    def fn(count: int) -> list[models.ArticleModel]:
+        with Session(models.engine) as session:
+            articles = [
+                models.ArticleModel(
+                    title=f"Test title {i}", content=f"Test content {i}"
+                )
+                for i in range(1, count + 1)
+            ]
+            session.add_all(articles)
+            session.commit()
+            for article in articles:
+                session.refresh(article)
+        return articles
+
+    return fn
+
+
+@pytest.fixture()
+def article(get_articles) -> models.ArticleModel:
+    return get_articles(1)[0]
 
 
 def test_article_found(article: models.ArticleModel):
@@ -31,7 +47,7 @@ def test_article_found(article: models.ArticleModel):
     assert response.status_code == 200
     assert response.json() == {
         "data": {
-            "attributes": {"content": "Test content", "title": "Test title"},
+            "attributes": {"title": "Test title 1", "content": "Test content 1"},
             "id": str(article.id),
             "links": {"self": f"/articles/{article.id}"},
             "type": "articles",
@@ -52,14 +68,14 @@ def test_edit(article: models.ArticleModel):
             "data": {
                 "type": "articles",
                 "id": str(article.id),
-                "attributes": {"content": "New content", "title": "New title"},
+                "attributes": {"title": "New title", "content": "New content"},
             }
         },
     )
     assert response.status_code == 200, response.json()
     assert response.json() == {
         "data": {
-            "attributes": {"content": "New content", "title": "New title"},
+            "attributes": {"title": "New title", "content": "New content"},
             "id": str(article.id),
             "links": {"self": f"/articles/{article.id}"},
             "type": "articles",
@@ -75,7 +91,7 @@ def test_edit_not_found(db):
             "data": {
                 "type": "articles",
                 "id": "1",
-                "attributes": {"content": "New content", "title": "New title"},
+                "attributes": {"title": "New title", "content": "New content"},
             }
         },
     )
@@ -99,7 +115,7 @@ def test_edit_different_id(db):
             "data": {
                 "type": "articles",
                 "id": "2",
-                "attributes": {"content": "New content", "title": "New title"},
+                "attributes": {"title": "New title", "content": "New content"},
             }
         },
     )
@@ -130,7 +146,7 @@ def test_edit_one_field(article: models.ArticleModel):
     assert response.status_code == 200
     assert response.json() == {
         "data": {
-            "attributes": {"title": "New title", "content": "Test content"},
+            "attributes": {"title": "New title", "content": "Test content 1"},
             "id": str(article.id),
             "links": {"self": f"/articles/{article.id}"},
             "type": "articles",
@@ -248,8 +264,30 @@ def test_get_many(article: models.ArticleModel):
             {
                 "type": "articles",
                 "id": str(article.id),
-                "attributes": {"content": "Test content", "title": "Test title"},
+                "attributes": {"title": "Test title 1", "content": "Test content 1"},
                 "links": {"self": f"/articles/{article.id}"},
+            }
+        ],
+        "links": {"self": "/articles"},
+    }
+
+
+def test_get_many_with_filter(
+    get_articles: Callable[[int], list[models.ArticleModel]],
+):
+    articles = get_articles(2)
+    response = client.get("/articles", params={"filter[title]": articles[0].title})
+    assert response.status_code == 200
+    assert response.json() == {
+        "data": [
+            {
+                "type": "articles",
+                "id": str(articles[0].id),
+                "attributes": {
+                    "title": articles[0].title,
+                    "content": articles[0].content,
+                },
+                "links": {"self": f"/articles/{articles[0].id}"},
             }
         ],
         "links": {"self": "/articles"},

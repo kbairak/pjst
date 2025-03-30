@@ -8,7 +8,7 @@ from pydantic import create_model
 from pjst import exceptions as pjst_exceptions
 from pjst import types as pjst_types
 from pjst.resource_handler import ResourceHandler
-from pjst.utils import find_annotations, hasdirectattr
+from pjst.utils import hasdirectattr
 
 
 class JsonApiResponse(JSONResponse):
@@ -81,12 +81,29 @@ def register(app: fastapi.FastAPI, resource_cls: type[ResourceHandler]) -> None:
     async def _many_view(request: fastapi.Request):
         try:
             if request.method == "GET":
-                request_parameters = find_annotations(
-                    resource_cls.get_one, fastapi.Request
-                )
-                simple_response = resource_cls.get_many(
-                    **{key: request for key in request_parameters}
-                )
+                signature = inspect.signature(resource_cls.get_many)
+                kwargs = {}
+                errors = []
+                for key, value in signature.parameters.items():
+                    if isinstance(value.default, pjst_types._Filter):
+                        try:
+                            kwargs[key] = request.query_params[f"filter[{key}]"]
+                        except KeyError:
+                            try:
+                                types = value.annotation.__args__
+                            except AttributeError:
+                                types = [value.annotation]
+                            if type(None) in types:
+                                kwargs[key] = None
+                            else:
+                                errors.append(
+                                    pjst_exceptions.BadRequest(
+                                        f"Parameter 'filter[{key}]' is required"
+                                    )
+                                )
+                if errors:
+                    raise pjst_exceptions.PjstExceptionMulti(*errors)
+                simple_response = resource_cls.get_many(**kwargs)
             else:  # pragma: no cover
                 raise pjst_exceptions.MethodNotAllowed(
                     f"Method {request.method} not allowed"
