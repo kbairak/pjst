@@ -51,9 +51,6 @@ class Response(pydantic.BaseModel):
     links: dict[str, str] = pydantic.Field(default_factory=dict)
 
 
-class _Filter:
-    pass
-
-
-def Filter() -> Any:
-    return _Filter()
+class Filter:
+    def __init__(self, **kwargs: Any) -> None:
+        self.kwargs = kwargs

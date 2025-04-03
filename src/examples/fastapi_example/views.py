@@ -1,3 +1,5 @@
+from typing import Annotated
+
 import pydantic
 from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound
@@ -74,7 +76,10 @@ class ArticleResourceHandler(ResourceHandler):
             session.commit()
 
     @classmethod
-    def get_many(cls, title: str | None = pjst_types.Filter()):
+    def get_many(
+        cls,
+        title: Annotated[str | None, pjst_types.Filter()] = None,
+    ):
         with Session(models.engine) as session:
             try:
                 query = select(models.ArticleModel)

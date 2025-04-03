@@ -1,5 +1,5 @@
 import inspect
-from typing import cast
+from typing import Annotated, cast
 
 import fastapi
 from fastapi.responses import JSONResponse
@@ -78,10 +78,12 @@ def register(app: fastapi.FastAPI, resource_cls: type[ResourceHandler]) -> None:
             name=f"Delete {resource_cls.TYPE} object",
         )(_one_view)
 
-    async def _many_view(request: fastapi.Request):
+    async def _many_view(**kwargs):
+        request = kwargs["request"]
         try:
             if request.method == "GET":
-                kwargs = resource_cls._process_filters(request.query_params)
+                if "request" not in inspect.signature(resource_cls.get_many).parameters:
+                    kwargs.pop("request")
                 simple_response = resource_cls.get_many(**kwargs)
             else:  # pragma: no cover
                 raise pjst_exceptions.MethodNotAllowed(
@@ -114,6 +116,48 @@ def register(app: fastapi.FastAPI, resource_cls: type[ResourceHandler]) -> None:
         return JsonApiResponse(processed_response.model_dump(exclude_unset=True))
 
     if hasdirectattr(resource_cls, "get_many"):
+        parameters = [
+            inspect.Parameter(
+                "request",
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                annotation=fastapi.Request,
+            )
+        ]
+        for key, value in inspect.signature(resource_cls.get_many).parameters.items():
+            if value.annotation is fastapi.Request:
+                continue
+
+            if (
+                hasattr(value.annotation, "__origin__")
+                and hasattr(value.annotation, "__metadata__")
+                and len(value.annotation.__metadata__) == 1
+                and isinstance(
+                    metadata := value.annotation.__metadata__[0], pjst_types.Filter
+                )
+            ):
+                parameters.append(
+                    inspect.Parameter(
+                        key,
+                        inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                        default=value.default,
+                        annotation=Annotated[
+                            value.annotation.__origin__,
+                            fastapi.Query(alias=f"filter[{key}]", **metadata.kwargs),
+                        ],
+                    )
+                )
+            else:
+                parameters.append(
+                    inspect.Parameter(
+                        key,
+                        inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                        default=value.default,
+                        annotation=value.annotation,
+                    )
+                )
+
+        _many_view.__signature__ = inspect.Signature(parameters)  # type: ignore
+
         app.get(
             f"/{resource_cls.TYPE}",
             name=f"Get {resource_cls.TYPE} collection",

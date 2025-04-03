@@ -1,3 +1,5 @@
+from typing import Annotated
+
 import pydantic
 
 from pjst import ResourceHandler
@@ -57,7 +59,10 @@ class ArticleResourceHandler(ResourceHandler):
             raise pjst_exceptions.NotFound(f"Article with id '{obj_id}' not found")
 
     @classmethod
-    def get_many(cls, title: str | None = pjst_types.Filter()) -> pjst_types.Response:
+    def get_many(
+        cls,
+        title: Annotated[str | None, pjst_types.Filter()] = None,
+    ) -> pjst_types.Response:
         queryset = ArticleModel.objects.order_by("created_at")
         if title is not None:
             queryset = queryset.filter(title=title)

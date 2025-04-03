@@ -111,24 +111,12 @@ class ResourceHandler:
     def _process_filters(cls, query_params: Mapping[str, str]) -> dict[str, str]:
         signature = inspect.signature(cls.get_many)
         kwargs = {}
-        errors = []
         for key, value in signature.parameters.items():
-            if isinstance(value.default, pjst_types._Filter):
-                try:
-                    kwargs[key] = query_params[f"filter[{key}]"]
-                except KeyError:
-                    try:
-                        types = value.annotation.__args__
-                    except AttributeError:
-                        types = [value.annotation]
-                    if type(None) in types:
-                        kwargs[key] = None
-                    else:
-                        errors.append(
-                            pjst_exceptions.BadRequest(
-                                f"Parameter 'filter[{key}]' is required"
-                            )
-                        )
-        if errors:
-            raise pjst_exceptions.PjstExceptionMulti(*errors)
+            if (
+                hasattr(value.annotation, "__origin__")
+                and hasattr(value.annotation, "__metadata__")
+                and len(value.annotation.__metadata__) == 1
+                and isinstance(value.annotation.__metadata__[0], pjst_types.Filter)
+            ):
+                kwargs[key] = query_params.get(f"filter[{key}]")
         return kwargs
